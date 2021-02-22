@@ -31,7 +31,9 @@ static const char* ERRORS[] = {
 enum PartType {
 	PartType_Set,
 	PartType_Arithmetic,
-	PartType_Del
+	PartType_Del,
+	PartType_NewLine,
+	PartType_Str
 };
 
 enum VarType {

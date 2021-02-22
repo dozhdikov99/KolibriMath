@@ -9,7 +9,7 @@
 #define MAX_EXPRESSION 256
 
 char* String;
-static const char* ver = "1.0.3";
+static const char* ver = "1.0.4";
 extern int STR_COUNT;
 
 #endif 

@@ -91,6 +91,10 @@ void freePart(Part* part) {
 		if (part->data)
 		freeSet(part->data);
 		break;
+		case PartType_Str:
+		if(part->data)
+			free(part->data);
+		break;
 	}
 	if(part)
 	free(part);
@@ -717,11 +721,38 @@ Part* GetDel(Array* array, int* index) {
 	}
 }
 
+Part* GetString(Array* array, int* index){
+	Part* part;
+	if((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Str){
+		ERROR_CODE = 8;
+		return NULL;
+	}else{
+		part = (Part*)malloc(sizeof(Part));
+		if(part == NULL){
+			ERROR_CODE = 10;
+			return NULL;
+		}
+		part->data = (char*)malloc(strlen((*(Token*)(((Token*)array->data) + *index)).data)*sizeof(char));
+		if(part->data == NULL){
+			free(part);
+			ERROR_CODE = 10;
+			return NULL;
+		}
+		part->data = (*(Token*)(((Token*)array->data) + *index)).data;
+		part->type = PartType_Str;
+		(*index)++;
+		return part;
+	}
+}
+
 Part* GetPart(Array* array, int* index) {
 	int pos = *index;
 	Part* part;
-	part = GetDel(array, index);
+	part = GetString(array, index);
 	if (part == NULL) {
+		*index = pos;
+	    part = GetDel(array, index);
+		if(part == NULL){
 		*index = pos;
 		part = GetSetting(array, index);
 		if (part == NULL) {
@@ -739,6 +770,7 @@ Part* GetPart(Array* array, int* index) {
 			}
 			part->data = operand;
 			part->type = PartType_Arithmetic;
+		}
 		}
 	}
 	return part;
@@ -758,6 +790,18 @@ Expression* parse(Array* array) {
 		if ((*(((Token*)array->data) + i)).type == TokenType_Sep) {
 			i++;
 			isFinish = 0;
+		}else if ((*(((Token*)array->data) + i)).type == TokenType_NewLineSep) {
+			i++;
+			isFinish = 0;
+			part = (Part*)malloc(sizeof(Part));
+			if(part == NULL){
+				error2(ERRORS[10]);
+		        return NULL;
+			}
+			part->data = NULL;
+			part->type = PartType_NewLine;
+			cvector_push_back(parts, part);
+			part = NULL;
 		}
 		part = GetPart(array, &i);
 		if (part != NULL) {

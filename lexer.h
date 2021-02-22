@@ -23,6 +23,7 @@ enum TokenType {
 	TokenType_OpEquals,
 	TokenType_Del,
 	TokenType_Sep,
+	TokenType_NewLineSep,
 	TokenType_Str,
 	TokenType_End
 };

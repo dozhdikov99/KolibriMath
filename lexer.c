@@ -36,7 +36,7 @@ void NextCh() {
 }
 
 short IsSep() {
-	return current() == ',' || current() == '\0' || current() == '(' || current() == ')' || current() == '=' || current() == '+' || current() == '-' || current() == '*' || current() == '/' || current() == ' ' || current() == '#' || current() == '\n' || current() == '\r';
+	return current() == ',' || current() == '\0' || current() == '(' || current() == ')' || current() == '=' || current() == '+' || current() == '-' || current() == '*' || current() == '/' || current() == ' ' || current() == '#' || current() == '\n' || current() == '\r' || current() == ';';
 }
 
 Token* GetName() {
@@ -48,7 +48,7 @@ Token* GetName() {
 	}
 	token->coord = pos;
 	int i = 0;
-	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r') {
+	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';') {
 		if (isalpha(current())) {
 			str[i] = current();
 			i++;
@@ -141,7 +141,7 @@ Token* GetNumber() {
 	token->coord = pos;
 	int count = 0;
 	int i = 0;
-	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r') {
+	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';') {
 		if (isalpha(current())) {
 			error("Ожидалась цифра или \'.\'.", pos);
 			free(token);
@@ -441,6 +441,31 @@ Array* tokenize(char* string) {
 			token->type = TokenType_Sep;
 			token->coord = pos;
 			last = TokenType_Sep;
+			cvector_push_back(lexems, token);
+			NextCh();
+		}else if (current() == ';') {
+			if (last >= 0 && last == TokenType_NewLineSep) {
+				error("Неожиданный символ.", pos);
+				result = -1;
+				break;
+			}
+			token = (Token*)malloc(sizeof(Token));
+			if (token == NULL) {
+				error2("Ошибка выделения памяти.");
+				result = -1;
+				break;
+			}
+			token->data = malloc(sizeof(char));
+			if (token->data == NULL) {
+				error2("Ошибка выделения памяти.");
+				free(token);
+				result = -1;
+				break;
+			}
+			token->data = ";\0";
+			token->type = TokenType_NewLineSep;
+			token->coord = pos;
+			last = TokenType_NewLineSep;
 			cvector_push_back(lexems, token);
 			NextCh();
 		}else if (current() == '\'') {

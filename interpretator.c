@@ -41,13 +41,13 @@ void addVariable(Variable_* variable) {
 void print2(Result* result) {
 	switch ((*(Result*)result).type) {
 	case ResultType_Int:
-		printf("%d\n", (int)(*(Result*)result).value);
+		printf("%d", (int)(*(Result*)result).value);
 		break;
 	case ResultType_Float:
-		printf("%f\n", (*(Result*)result).value);
+		printf("%f", (*(Result*)result).value);
 		break;
 	case ResultType_Undefined:
-		printf("undefined\n");
+		printf("undefined");
 		break;
 		case ResultType_Spec:
 		break;
@@ -617,6 +617,14 @@ void runDel(Part* part) {
 	deleteVariable(variable);
 }
 
+void runNewLine(){
+	printf("\n");
+}
+
+void runPrintStr(Part* part){
+	printf("%s", part->data);
+}
+
 void runPart(Part* part) {
 	Result* result;
 	switch (part->type) {
@@ -632,6 +640,12 @@ void runPart(Part* part) {
 			print2(result);
 			free(result);
 		}
+		break;
+	case PartType_NewLine:
+		runNewLine();
+		break;
+	case PartType_Str:
+		runPrintStr(part);
 		break;
 	}
 }

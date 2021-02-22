@@ -18,7 +18,7 @@
 char string[MAX_EXPRESSION];
 
 short IsWork() {
-	printf(">>>");
+	printf("\n>>>");
 	Array* array;
 	Expression* expression;
 	gets(string);
