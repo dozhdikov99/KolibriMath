@@ -8,10 +8,46 @@
 cvector* variables;
 cvector* functions;
 
+char* stringInput;
+
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
 Result* runUnar(Operand* operand);
 Result* runFunction(Function* function);
+
+void getNumberFromStr(Result* result){
+	int i = 0;
+	int count = 0;
+	enum ResultType type = ResultType_Int;
+	while(stringInput[i] != '\0'){
+		if(stringInput[i] == '-' && i == 0){
+			i++;
+			continue;
+		}else if(isalpha(stringInput[i])){
+			type = ResultType_Undefined;
+			break;
+		}else if(isdigit(stringInput[i])){
+			i++;
+			continue;
+		}else if(stringInput[i] == '.' && count == 0){
+			count++;
+			type = ResultType_Float;
+		}else{
+			type = ResultType_Undefined;
+			break;
+		}
+		i++;
+	}
+	if(i == 0){
+		type = ResultType_Undefined;
+	}
+	result->type = type;
+	if(type == ResultType_Int){
+		(*result).value = (double)atoi(stringInput);
+	}else if(type == ResultType_Float){
+		(*result).value = (double)atof2(stringInput);
+	}
+}
 
 Variable_* findVariable(char* name) {
 	char* var;
@@ -145,6 +181,7 @@ Result* runUnar(Operand* operand) {
 Result* runFunction(Function* function) {
 	Result* result;
 	result = (Result*)malloc(sizeof(Result));
+    memset(stringInput, 0, sizeof(stringInput));
 	if (result == NULL) {
 		error2("Ошибка выделения памяти.");
 		return NULL;
@@ -176,8 +213,18 @@ Result* runFunction(Function* function) {
 			printf("Доступны четыре базовые операции: *, /, +, -.\n");
 			printf("Возможно написание выражений через запятые в одну строку.\n");
 			printf("Доступны функции: int(<число>), float(<число>), sqrt(<число>), pow2(<число>),\n");
-			printf("pow(<число>, <число>), sin(<число>), cos(<число>), abs(<число>), \nfile(<путь к файлу>).\n");
+			printf("pow(<число>, <число>), sin(<число>), cos(<число>), abs(<число>), \nfile(<путь к файлу>),\n");
+			printf("input(), input(<подсказка к вводу>).\n");
 			result->type = ResultType_Spec;
+		}else if (!(strcmp((*(Function*)function).name, "input"))) {
+		    printf("<");
+		    gets(stringInput);
+			if (stringInput == NULL) {
+				result->type = ResultType_Spec;
+		        printf("\nСтрока не может быть слишком длинной.");
+		        return result;
+	        }
+			getNumberFromStr(result);
 		}
 		else {
 			result->type = ResultType_Spec;
@@ -189,10 +236,14 @@ Result* runFunction(Function* function) {
 		if (!(strcmp((*(Function*)function).name, "int"))) {
 			Result* operand = runOperand(function->operands);
 			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-					(*(Result*)result).value = (int)(*(Result*)operand).value;
+				(*(Result*)result).value = (int)(*(Result*)operand).value;
 				result->type = VarType_Int;
+				free(operand);
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'int\'.");
 				return result;
@@ -200,10 +251,14 @@ Result* runFunction(Function* function) {
 		}else if (!(strcmp((*(Function*)function).name, "float"))) {
 			Result* operand = runOperand(function->operands);
 			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-					(*(Result*)result).value = (*(Result*)operand).value;
+				(*(Result*)result).value = (*(Result*)operand).value;
 				result->type = VarType_Float;
+				free(operand);
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'float\'.");
 				return result;
@@ -214,8 +269,12 @@ Result* runFunction(Function* function) {
 			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
 					if ((*(Result*)operand).value > 0) {
 						(*(Result*)result).value = sqrt((*(Result*)operand).value);
+						free(operand);
 					}
 					else {
+						if(operand != NULL){
+					        free(operand);
+				        }
 						result->type = ResultType_Spec;
 						error2("Функция \'sqrt\' принимает отрицательный аргумент.");
 						return result;
@@ -223,6 +282,9 @@ Result* runFunction(Function* function) {
 				result->type = VarType_Float;
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'sqrt\'.");
 				return result;
@@ -233,8 +295,12 @@ Result* runFunction(Function* function) {
 			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
 				(*(Result*)result).value = sin((*(Result*)operand).value);
 				result->type = VarType_Float;
+				free(operand);
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'sin\'.");
 				return result;
@@ -245,8 +311,12 @@ Result* runFunction(Function* function) {
 			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
 				(*(Result*)result).value = cos((*(Result*)operand).value);
 				result->type = VarType_Float;
+				free(operand);
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'cos\'.");
 				return result;
@@ -259,19 +329,27 @@ Result* runFunction(Function* function) {
 					if (operand->type == VarType_Float) {
 						(*(Result*)result).value = pow((*(Result*)operand).value, 2);
 						result->type = VarType_Float;
+						free(operand);
 					}
 					else {
 						(*(Result*)result).value = (int)pow((*(Result*)operand).value, 2);
 						result->type = VarType_Int;
+						free(operand);
 					}
 				}
 				else {
+					if(operand != NULL){
+					free(operand);
+				    }
 					result->type = ResultType_Spec;
 					error2("Функция \'pow2\' принимает нулевой аргумент.");
 					return result;
 				}
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'pow2\'.");
 				return result;
@@ -282,13 +360,18 @@ Result* runFunction(Function* function) {
 					if (operand->type == VarType_Float) {
 						(*(Result*)result).value = abs((*(Result*)operand).value);
 						result->type = VarType_Float;
+						free(operand);
 					}
 					else {
 						(*(Result*)result).value = (int)abs((*(Result*)operand).value);
 						result->type = VarType_Int;
+						free(operand);
 					}
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'abs\'.");
 				return result;
@@ -300,10 +383,36 @@ Result* runFunction(Function* function) {
 					runFromFile((char*)((Result*)operand)->str);
 					free(((Result*)operand)->str);
 					result->type = ResultType_Spec;
+					free(operand);
 			}
 			else {
+				if(operand != NULL){
+					free(operand);
+				}
 				result->type = ResultType_Spec;
 				error2("Не удалось выполнить функцию \'file\'.");
+				return result;
+			}
+		}else if (!(strcmp((*(Function*)function).name, "input"))) {
+			Result* operand = runOperand(function->operands);
+			if (operand != NULL && operand->type == VarType_Str) {
+				printf("%s", operand->str);
+			    gets(stringInput);
+				if (stringInput == NULL) {
+					free(operand);
+				    result->type = ResultType_Spec;
+		            error2("Строка не может быть слишком длинной.");
+		           return result;
+	            }
+			    getNumberFromStr(result);
+				free(operand);
+			}
+			else {
+				if(operand != NULL){
+					free(operand);
+				}
+				result->type = ResultType_Spec;
+				error2("Не удалось выполнить функцию \'input\'.");
 				return result;
 			}
 		}
@@ -321,14 +430,28 @@ Result* runFunction(Function* function) {
 		if ((*(Result*)operand0).value != 0 && (*(Result*)operand1).value != 0) {
 				(*(Result*)result).value = pow((*(Result*)operand0).value, (*(Result*)operand1).value);
 				result->type = VarType_Float;
+				free(operand0);
+				free(operand1);
 		}
 		else {
+			if(operand0 != NULL){
+				free(operand0);
+			}
+			if(operand1 != NULL){
+				free(operand1);
+			}
 			result->type = ResultType_Spec;
 			error2("Функция \'pow\' принимает один или несколько нулевых аргументов.");
 			return result;
 		}
 	}
 	else {
+		if(operand0 != NULL){
+			free(operand0);
+		}
+		if(operand1 != NULL){
+			free(operand1);
+		}
 		result->type = ResultType_Spec;
 		error2("Не удалось выполнить функцию \'pow\'.");
 		return result;
@@ -657,6 +780,8 @@ short initTables() {
 		return 0;
 	}
 	cvector_init(variables);
+	stringInput = malloc(sizeof(char)*MAX_EXPRESSION);
+	memset(stringInput, 0, sizeof(stringInput));
 	return 1;
 }
 

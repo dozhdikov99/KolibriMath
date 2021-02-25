@@ -8,13 +8,15 @@
 #define INTERPRETATOR_H
 
 #include "globals.h"
-#include "parser.h"
 #include "out.h"
 #include "cvector.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include "file.h"
+#include "parser.h"
+#include "utils.h"
+#include <ctype.h>
 
 enum ResultType {
 	ResultType_Int,

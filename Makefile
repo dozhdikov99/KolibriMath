@@ -12,7 +12,7 @@ LIBPATH = -L $(SDK_DIR)/lib -L /home/autobuild/tools/win32/mingw32/lib
 
 
 # Only selected
-SRC = KolibriMath.c lexer.c parser.c interpretator.c out.c cvector.c file.c
+SRC = KolibriMath.c lexer.c parser.c interpretator.c out.c cvector.c file.c utils.c
 
 # All .c files
 # SRC = $(notdir $(wildcard *.c))

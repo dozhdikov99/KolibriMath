@@ -12,6 +12,7 @@
 #include <string.h>
 #include "lexer.h"
 #include <stdlib.h>
+#include "utils.h"
 
 static const char* ERRORS[] = {
 	"При парсинге произошла ошибка.",

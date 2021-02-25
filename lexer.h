@@ -39,7 +39,6 @@ typedef struct {
 	int size;
 } Array;
 
-
 extern Array* tokenize(char* string);
 
 void freeToken(Token* token);
