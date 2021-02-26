@@ -214,7 +214,7 @@ Result* runFunction(Function* function) {
 			printf("Возможно написание выражений через запятые в одну строку.\n");
 			printf("Доступны функции: int(<число>), float(<число>), sqrt(<число>), pow2(<число>),\n");
 			printf("pow(<число>, <число>), sin(<число>), cos(<число>), abs(<число>), \nfile(<путь к файлу>),\n");
-			printf("input(), input(<подсказка к вводу>).\n");
+			printf("input(), input(<подсказка к вводу>), ceil(<число>), mod(<число>).\n");
 			result->type = ResultType_Spec;
 		}else if (!(strcmp((*(Function*)function).name, "input"))) {
 		    printf("<");
@@ -405,6 +405,55 @@ Result* runFunction(Function* function) {
 		           return result;
 	            }
 			    getNumberFromStr(result);
+				free(operand);
+			}
+			else {
+				if(operand != NULL){
+					free(operand);
+				}
+				result->type = ResultType_Spec;
+				error2("Не удалось выполнить функцию \'input\'.");
+				return result;
+			}
+		}else if (!(strcmp((*(Function*)function).name, "ceil"))) {
+			Result* operand = runOperand(function->operands);
+			if (operand != NULL) {
+				if(operand->type != VarType_Undefined && operand->type != VarType_Str ){
+					result->type = ResultType_Float;
+					(*(Result*)result).value = ceil((*(Result*)operand).value);
+				}else{
+					if(operand != NULL){
+					    free(operand);
+				    }
+				result->type = ResultType_Spec;
+				error2("Не удалось выполнить функцию \'ceil\'.");
+				return result;
+				}
+				free(operand);
+			}
+			else {
+				if(operand != NULL){
+					free(operand);
+				}
+				result->type = ResultType_Spec;
+				error2("Не удалось выполнить функцию \'input\'.");
+				return result;
+			}
+		}else if (!(strcmp((*(Function*)function).name, "mod"))) {
+			Result* operand = runOperand(function->operands);
+			if (operand != NULL) {
+				if(operand->type != VarType_Undefined && operand->type != VarType_Str ){
+					double result0 = 0;
+					result->type = ResultType_Float;
+					(*(Result*)result).value = modf((*(Result*)operand).value, &result0);
+				}else{
+					if(operand != NULL){
+					    free(operand);
+				    }
+				result->type = ResultType_Spec;
+				error2("Не удалось выполнить функцию \'mod\'.");
+				return result;
+				}
 				free(operand);
 			}
 			else {

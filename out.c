@@ -15,7 +15,7 @@ void error(const char* msg, int pos) {
 		printf("^");
 	}
 	else {
-		printf("(Строка %d)\n", STR_COUNT);
+		printf("(Строка %d, символ %d)\n", STR_COUNT, pos);
 	}
 	printf("\nПроизошла ошибка: %s\n", msg);
 }
