@@ -8,14 +8,14 @@
 #include "globals.h"
 
 void error(const char* msg, int pos) {
-		if (STR_COUNT == 0) {
+	if (IS_FILE == 0) {
 		printf("%s\n", String);
 		for (int i = 0; i < pos; i++)
 			printf(" ");
 		printf("^");
 	}
 	else {
-		printf("(Строка %d, символ %d)\n", STR_COUNT, pos);
+		printf("(символ %d)\n", pos);
 	}
 	printf("\nПроизошла ошибка: %s\n", msg);
 }

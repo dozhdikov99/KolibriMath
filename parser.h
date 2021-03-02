@@ -34,14 +34,17 @@ enum PartType {
 	PartType_Arithmetic,
 	PartType_Del,
 	PartType_NewLine,
-	PartType_Str
+	PartType_Str,
+	PartType_Logic,
+	PartType_Logic_Construction
 };
 
 enum VarType {
 	VarType_Int,
 	VarType_Float,
 	VarType_Undefined,
-	VarType_Str
+	VarType_Str,
+	VarType_Logic
 };
 
 enum OperandType {
@@ -50,14 +53,33 @@ enum OperandType {
 	OperandType_Variable,
 	OperandType_Arithmetic,
 	OperandType_Unar,
-	OperandType_Str
+	OperandType_Logic,
+	OperandType_LogicConst,
+	OperandType_Str,
+	OperandType_Inverse
 };
 
 enum OpType {
 	OpType_Add,
 	OpType_Mul,
 	OpType_Sub,
-	OpType_Div
+	OpType_Div,
+};
+
+enum LOpType {
+	LOpType_And,
+	LOpType_Or,
+	LOpType_Equals,
+	LOpType_NotEquals,
+	LOpType_More,
+	LOpType_EqualsOrMore,
+	LOpType_Less,
+	LOpType_EqualsOrLess
+};
+
+enum LogicPartType {
+	LogicPartType_If,
+	LogicPartType_Repeat
 };
 
 typedef struct {
@@ -89,6 +111,13 @@ typedef struct {
 } Arithmetic;
 
 typedef struct {
+	Operand* operands;
+	enum LOpType* operations;
+	int operandsCount;
+	int operationsCount;
+} Logic;
+
+typedef struct {
 	Operand* variable;
 	Operand* source;
 } Setting;
@@ -97,6 +126,12 @@ typedef struct {
 	Part* parts;
 	int count;
 } Expression;
+
+typedef struct {
+	Logic* condition;
+	Expression* expression;
+	enum LogicPartType logicPartType;
+}Logic_Construction;
 
 void freeExpression(Expression* expression);
 

@@ -25,6 +25,21 @@ enum TokenType {
 	TokenType_Sep,
 	TokenType_NewLineSep,
 	TokenType_Str,
+	TokenType_If,
+	TokenType_Repeat,
+	TokenType_LeftFigureBracket,
+	TokenType_RightFigureBracket,
+	TokenType_And,
+	TokenType_Or,
+	TokenType_Equals,
+	TokenType_NotEquals,
+	TokenType_More,
+	TokenType_EqualsOrMore,
+	TokenType_Less,
+	TokenType_EqualsOrLess,
+	TokenType_Inverse,
+	TokenType_False,
+	TokenType_True,
 	TokenType_End
 };
 

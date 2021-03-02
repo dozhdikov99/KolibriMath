@@ -6,11 +6,11 @@
 #ifndef GLOBALS_H
 
 #define GLOBALS_H
-#define MAX_EXPRESSION 256
+#define MAX_EXPRESSION 8192
 
 char* String;
-static const char* ver = "1.0.6";
-extern int STR_COUNT;
+static const char* ver = "1.1.0";
+extern short IS_FILE;
 
 #endif 
 

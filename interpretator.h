@@ -23,7 +23,8 @@ enum ResultType {
 	ResultType_Float,
 	ResultType_Undefined,
 	ResultType_Str,
-	ResultType_Spec
+	ResultType_Spec,
+	ResultType_Logic
 };
 
 typedef struct {

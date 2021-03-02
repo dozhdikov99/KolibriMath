@@ -1,10 +1,10 @@
 #include "file.h"
 
-int STR_COUNT = 0;
+short IS_FILE = 0;
 
 void runFromFile(char* path) {
+	IS_FILE = 1;
 	int i = 0;
-	STR_COUNT = 0;
 	char symbol;
 	Array* array;
 	Expression* expression;
@@ -22,24 +22,21 @@ void runFromFile(char* path) {
 	symbol = getc(file);
 	while (1) {
 		str[i] = symbol;
-		if (symbol == '\n' || symbol == EOF) {
+		if (symbol == EOF) {
 			str[i] = '\0';
 			if (i > MAX_EXPRESSION) {
 				error2("Файл не может быть слишком большой.");
-				STR_COUNT = 0;
 				return;
 			}
 			if (i > 0) {
-				string = (char*)malloc(sizeof(char) * (i+1));
+				string = (char*)malloc(sizeof(char) * (i + 1));
 				if (string == NULL) {
 					error2("Ошибка выделения памяти.");
-					STR_COUNT = 0;
 					return;
 				}
-					for (int j = 0; j < i+1; j++) {
-						string[j] = str[j];
-					}
-				STR_COUNT++;
+				for (int j = 0; j < i + 1; j++) {
+					string[j] = str[j];
+				}
 				array = tokenize(string);
 				if (array != NULL) {
 					expression = parse(array);
@@ -49,13 +46,11 @@ void runFromFile(char* path) {
 				}
 				free(string);
 			}
-			i = -1;
-		}
-		if (symbol == EOF) {
 			break;
 		}
 		symbol = getc(file);
 		i++;
 	};
 	fclose(file);
+	IS_FILE = 0;
 }
