@@ -9,7 +9,7 @@
 #define MAX_EXPRESSION 8192
 
 char* String;
-static const char* ver = "1.1.0";
+static const char* ver = "1.1.1";
 extern short IS_FILE;
 
 #endif 

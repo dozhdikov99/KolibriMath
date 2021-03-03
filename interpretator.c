@@ -9,6 +9,7 @@ cvector* variables;
 cvector* functions;
 
 char* stringInput;
+short value = 0;
 
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
@@ -257,7 +258,7 @@ Result* runFunction(Function* function) {
 			printf("Язык прозволяет работать с переменными двух типов: int, float. Тип задается при присваивании автоматически.\n");
 			printf("При присваивании используется следующая структура: <переменная> = <выражение>.\n");
 			printf("Допускаются операции \'*=\', \'+=\', \'-=\', \'/=\'.\n");
-			printf("Имеются блоки if(<условие>){<тело>}, repeat(<условие>){<тело>}.\n");
+			printf("Имеются блоки if(<условие>){<тело>}, elif(<условие>){<тело>}, else{<тело>}, repeat(<условие>){<тело>}.\n");
 			printf("Логические операции: & (И), | (ИЛИ), ! (НЕ), ==, !=, <=, <, >=, >.\n");
 			printf("Удаление переменной: del <переменная>.\n");
 			printf("Доступны четыре базовые операции: *, /, +, -.\n");
@@ -999,12 +1000,18 @@ void runDel(Part* part) {
 	deleteVariable(variable);
 }
 
-void runIf(Part* part){
+short runIfElif(Part* part){
 	Logic_Construction* logic_construction = part->data;
 	Result* result = runLogic(logic_construction->condition);
 	if((*(Result*)result).type == ResultType_Logic && (*(Result*)result).value == 1.0){
 		run(logic_construction->expression);
 	}
+	return (short)(*(Result*)result).value;
+}
+
+void runElse(Part* part) {
+	Logic_Construction* logic_construction = part->data;
+	run(logic_construction->expression);
 }
 
 void runRepeat(Part* part){
@@ -1052,9 +1059,15 @@ void runPart(Part* part) {
 		break;
 	case PartType_Logic_Construction:
 	    if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_If){
-			runIf(part);
-		} 
-		else{
+			value = runIfElif(part);
+		}
+		else if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Elif && !value) {
+			value = runIfElif(part);
+		}
+		else if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Else && !value) {
+			runElse(part);
+		}
+		else if((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Repeat){
 			runRepeat(part);
 		}
 		break;

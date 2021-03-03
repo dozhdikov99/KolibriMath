@@ -7,6 +7,7 @@
 
 int ERROR_CODE = 0;
 int ERROR_POS = 0;
+int IF_TYPE = 0;
 
 void freeExpression(Expression* expression);
 void freeArithmetic(Arithmetic* arithmetic);
@@ -1094,46 +1095,68 @@ Part* GetString(Array* array, int* index) {
 
 Part* Get_Logic_Construction(Array* array, int* index, int type) {
 	Part* part;
-	if (((*(Token*)(((Token*)array->data) + *index)).type != TokenType_If && !type) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Repeat && type)) {
+	if (((*(Token*)(((Token*)array->data) + *index)).type != TokenType_If && type == 0) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Repeat && type == 1) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Elif && type == 2) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Else && type == 3)) {
 		ERROR_CODE = 8;
 		return NULL;
 	}
 	(*index)++;
-	if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_LeftBracket) {
-		ERROR_CODE = 8;
-		return NULL;
+	Operand* logic;
+	if (type != 3) {
+		if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_LeftBracket) {
+			ERROR_CODE = 8;
+			return NULL;
+		}
+		(*index)++;
+		logic = GetLogic(array, index);
+		if (logic == NULL) {
+			return NULL;
+		}
+		(*index)++;
 	}
-	(*index)++;
-	Operand* logic = GetLogic(array, index);
-	if (logic == NULL) {
-		return NULL;
-	}
-	(*index)++;
 	if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_LeftFigureBracket) {
 		ERROR_CODE = 8;
-		freeOperand(logic);
+		if (type != 3) {
+			freeOperand(logic);
+		}
 		return NULL;
 	}
 	(*index)++;
 	Expression* expression = GetExpression(array, index, 1);
 	if (expression == NULL) {
-		freeOperand(logic);
+		if (type != 3) {
+			freeOperand(logic);
+		}
 		return NULL;
 	}
 	Logic_Construction* logic_construction = (Logic_Construction*)malloc(sizeof(Logic_Construction));
 	if (logic_construction == NULL) {
 		ERROR_CODE = 10;
-		freeOperand(logic);
+		if (type != 3) {
+			freeOperand(logic);
+		}
 		freeExpression(expression);
 		return NULL;
 	}
-	logic_construction->condition = logic->data;
-	logic_construction->expression = expression;
-	if (type) {
-		(*logic_construction).logicPartType = LogicPartType_Repeat;
+	if (type != 3) {
+		logic_construction->condition = logic->data;
 	}
 	else {
+		logic_construction->condition = NULL;
+	}
+	logic_construction->expression = expression;
+	switch (type) {
+	case 0:
 		logic_construction->logicPartType = LogicPartType_If;
+		break;
+	case 1:
+		logic_construction->logicPartType = LogicPartType_Repeat;
+		break;
+	case 2:
+		logic_construction->logicPartType = LogicPartType_Elif;
+		break;
+	case 3:
+		logic_construction->logicPartType = LogicPartType_Else;
+		break;
 	}
 	part = (Part*)malloc(sizeof(Part));
 	if (part == NULL) {
@@ -1151,6 +1174,20 @@ Part* Get_Logic_Construction(Array* array, int* index, int type) {
 Part* GetPart(Array* array, int* index) {
 	int pos = *index;
 	Part* part;
+	if (IF_TYPE == 2 || IF_TYPE == 1) {
+		part = Get_Logic_Construction(array, index, 2);
+		if (part == NULL) {
+			part = Get_Logic_Construction(array, index, 3);
+			IF_TYPE = 0;
+			if (part != NULL) {
+				return part;
+			}
+		}
+		else {
+			IF_TYPE = 2;
+			return part;
+		}
+	}
 	part = GetString(array, index);
 	if (part == NULL) {
 		*index = pos;
@@ -1193,9 +1230,22 @@ Part* GetPart(Array* array, int* index) {
 							part->data = operand;
 							part->type = PartType_Arithmetic;
 						}
+						IF_TYPE = 0;
+					}
+					else {
+						IF_TYPE = 0;
 					}
 				}
+				else {
+					IF_TYPE = 1;
+				}
 			}
+			else {
+				IF_TYPE = 0;
+			}
+		}
+		else {
+			IF_TYPE = 0;
 		}
 	}
 	return part;

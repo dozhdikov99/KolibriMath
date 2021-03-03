@@ -40,6 +40,8 @@ enum TokenType {
 	TokenType_Inverse,
 	TokenType_False,
 	TokenType_True,
+	TokenType_Elif,
+	TokenType_Else,
 	TokenType_End
 };
 

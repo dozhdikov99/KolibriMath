@@ -79,7 +79,9 @@ enum LOpType {
 
 enum LogicPartType {
 	LogicPartType_If,
-	LogicPartType_Repeat
+	LogicPartType_Repeat,
+	LogicPartType_Elif,
+	LogicPartType_Else
 };
 
 typedef struct {

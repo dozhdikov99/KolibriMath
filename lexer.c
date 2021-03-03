@@ -86,6 +86,11 @@ Token* GetName() {
 	}
 	else if (i == 6 && !strcmp(str, "repeat")) {
 		token->type = TokenType_Repeat;
+	}else if (i == 4 && !strcmp(str, "elif")) {
+		token->type = TokenType_Elif;
+	}
+	else if (i == 4 && !strcmp(str, "else") && current() == '{') {
+		token->type = TokenType_Else;
 	}
 	else {
 		token->type = TokenType_Name;
