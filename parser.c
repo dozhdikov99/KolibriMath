@@ -6,8 +6,24 @@
 #include "parser.h"
 
 int ERROR_CODE = 0;
-int ERROR_POS = 0;
 int IF_TYPE = 0;
+short IS_ERROR = 0;
+Environment* environment;
+char* forStr;
+const char* errors3[] = {
+	"при парсинге произошла ошибка [код: 3.0].",
+	"неожиданный конец выражения [код: 3.1].",
+	"ожидалась операция удаления [код: 3.2].",
+	"ожидалось название переменной [код: 3.3].",
+	"ожидался символ \',\' или конец выражения [код: 3.4].",
+	"ожидался символ \'=\' [код: 3.5].",
+	"ошибка при получении числа [код: 3.6].",
+	"ожидалось название функции [код: 3.7].",
+	"неожиданный символ [код: 3.8].",
+	"ожидалось число [код: 3.9].",
+	"ошибка выделения памяти [код: 3.10].",
+	"строка не может быть частью арифметического выражения [код: 3.11]."
+};
 
 void freeExpression(Expression* expression);
 void freeArithmetic(Arithmetic* arithmetic);
@@ -154,6 +170,35 @@ void freeExpression(Expression* expression) {
 	free(expression);
 }
 
+enum TokenType GetType(Array* array, int* index){
+	return (*(Token*)(((Token*)array->data) + *index)).type;
+}
+
+void AddIndex(int* index, Array* array, int value){
+	(*index) += value;
+	while ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_NewLine) {
+		(*index) += value;
+	}
+	if ((*environment).isFile == 1) {
+		if((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Str){
+			forStr = malloc((strlen(((Token*)(((Token*)array->data) + *index))->data)+2)*sizeof(char));
+			if(forStr == NULL){
+				error2(errors3[10]);
+			}else{
+				forStr[0] = '\'';
+				for(int i = 0; i < strlen(((Token*)(((Token*)array->data) + *index))->data); i++){
+					forStr[i+1] = *(((Token*)(((Token*)array->data) + *index))->data+i);
+				}
+				forStr[strlen(((Token*)(((Token*)array->data) + *index))->data)-2] = '\'';
+			}
+		}else{
+		    environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+		}
+	}
+	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
+	environment->line = ((Token*)(((Token*)array->data) + *index))->line;
+}
+
 enum OpType* GetOperation(Token* token) {
 	enum OpType* operation = (enum OpType*)malloc(sizeof(enum OpType));
 	if (token->data == NULL) {
@@ -171,7 +216,15 @@ enum OpType* GetOperation(Token* token) {
 	}
 	else if ((*token).type == TokenType_OpAdd) {
 		*operation = OpType_Add;
+	}else{
+		free(operation);
+		return NULL;
 	}
+	if((*environment).isFile == 1){
+		environment->str = token->data;
+	}
+	environment->pos = token->coord;
+	environment->line = token->line;
 	return operation;
 }
 
@@ -205,6 +258,11 @@ enum LOpType* GetLogicOperation(Token* token) {
 	else if ((*token).type == TokenType_EqualsOrLess) {
 		*operation = LOpType_EqualsOrLess;
 	}
+	if ((*environment).isFile == 1) {
+		environment->str = token->data;
+	}
+	environment->pos = token->coord;
+	environment->line = token->line;
 	return operation;
 }
 
@@ -214,7 +272,12 @@ Const* GetNumber2(Array* array, int* index) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Int) {
+	if ((*environment).isFile == 1) {
+		environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+	}
+	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
+	environment->line = ((Token*)(((Token*)array->data) + *index))->line;
+	if (GetType(array, index) == TokenType_Int) {
 		number->data = (int*)malloc(sizeof(int));
 		if (number->data == NULL) {
 			free(number);
@@ -225,7 +288,7 @@ Const* GetNumber2(Array* array, int* index) {
 		number->type = VarType_Int;
 		return number;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Float) {
+	else if (GetType(array, index) == TokenType_Float) {
 		number->data = (double*)malloc(sizeof(double));
 		if (number->data == NULL) {
 			free(number);
@@ -238,7 +301,6 @@ Const* GetNumber2(Array* array, int* index) {
 	}
 	else {
 		ERROR_CODE = 9;
-		ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 		free(number);
 		return NULL;
 	}
@@ -250,7 +312,12 @@ Const* GetLogicConst(Array* array, int* index) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_False) {
+	if ((*environment).isFile == 1) {
+		environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+	}
+	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
+	environment->line = ((Token*)(((Token*)array->data) + *index))->line;
+	if (GetType(array, index) == TokenType_False) {
 		logicConst->data = (short*)malloc(sizeof(short));
 		if (logicConst->data == NULL) {
 			free(logicConst);
@@ -260,7 +327,7 @@ Const* GetLogicConst(Array* array, int* index) {
 		*((short*)(*(Const*)logicConst).data) = 0;
 		logicConst->type = VarType_Logic;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_True) {
+	else if (GetType(array, index) == TokenType_True) {
 		logicConst->data = (short*)malloc(sizeof(short));
 		if (logicConst->data == NULL) {
 			free(logicConst);
@@ -284,14 +351,18 @@ Operand* GetVariable(Array* array, int* index) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Name) {
+	if ((*environment).isFile == 1) {
+		environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+	}
+	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
+	environment->line = ((Token*)(((Token*)array->data) + *index))->line;
+	if (GetType(array, index) == TokenType_Name) {
 		(*(Operand*)operand).data = (char*)(*(Token*)(((Token*)array->data) + *index)).data;
 		(*(Operand*)operand).type = OperandType_Variable;
 		return operand;
 	}
 	else {
 		ERROR_CODE = 8;
-		ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 		free(operand);
 		return NULL;
 	}
@@ -305,8 +376,15 @@ Operand* GetFunction(Array* array, int* index) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
+	if ((*environment).isFile == 1) {
+		environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+	}
+	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
+	environment->line = ((Token*)(((Token*)array->data) + *index))->line;
 	cvector_init(args);
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Name && (*(Token*)(((Token*)array->data) + *index + 1)).type == TokenType_LeftBracket) {
+	int new_index = *index + 1;
+	enum TokenType next = GetType(array, &new_index);
+	if (GetType(array, index) == TokenType_Name && next == TokenType_LeftBracket) {
 		function = (Function*)malloc(sizeof(Function));
 		if (function == NULL) {
 			cvector_free(args);
@@ -315,9 +393,9 @@ Operand* GetFunction(Array* array, int* index) {
 			return NULL;
 		}
 		function->name = (char*)(*(Token*)(((Token*)array->data) + *index)).data;
-		(*index) += 2;
+		AddIndex(index, array, 2);
 		Operand* arg;
-		if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Str) {
+		if ((*(((Token*)array->data) + *index)).type != TokenType_Str) {
 			arg = GetArithmetic(array, index);
 		}
 		else {
@@ -325,20 +403,23 @@ Operand* GetFunction(Array* array, int* index) {
 		}
 		if (arg != NULL) {
 			cvector_push_back(args, arg);
-			while ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_RightBracket) {
-				if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Sep) {
-					(*index)++;
+			while (GetType(array, index) != TokenType_RightBracket) {
+				if (GetType(array, index) == TokenType_Sep) {
+					AddIndex(index, array, 1);
 				}
-				if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_RightBracket) {
+				while (GetType(array, index) == TokenType_NewLine) {
+					AddIndex(index, array, 1);
+				}
+				environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+				if (GetType(array, index) == TokenType_RightBracket) {
 					ERROR_CODE = 8;
-					ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 					freeOperand(arg);
 					free(function);
 					cvector_free(args);
 					free(args);
 					return NULL;
 				}
-				if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Str) {
+				if (GetType(array, index) != TokenType_Str) {
 					arg = GetArithmetic(array, index);
 				}
 				else {
@@ -378,11 +459,11 @@ Operand* GetFunction(Array* array, int* index) {
 			}
 			operand->data = function;
 			operand->type = OperandType_Function;
-			(*index)++;
+			AddIndex(index, array, 1);
 			cvector_free(args);
 			return operand;
 		}
-		else if (arg == NULL && (*(Token*)(((Token*)array->data) + *index)).type == TokenType_RightBracket) {
+		else if (arg == NULL && GetType(array, index) == TokenType_RightBracket) {
 			function->count = 0;
 			function->operands = NULL;
 			operand = (Operand*)malloc(sizeof(Operand));
@@ -397,10 +478,11 @@ Operand* GetFunction(Array* array, int* index) {
 			operand->type = OperandType_Function;
 			cvector_free(args);
 			free(args);
-			(*index)++;
+			AddIndex(index, array, 1);
 			return operand;
 		}
 		else {
+			ERROR_CODE = 8;
 			for (int i = 0; i < cvector_size(args); i++) {
 				freeOperand(cvector_get(args, i));
 			}
@@ -420,13 +502,13 @@ Operand* GetFunction(Array* array, int* index) {
 
 Operand* GetOperand(Array* array, int* index) {
 	Operand* operand;
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpSub) {
+	if (GetType(array, index) == TokenType_OpSub) {
 		operand = (Operand*)malloc(sizeof(Operand));
 		if (operand == NULL) {
 			ERROR_CODE = 10;
 			return NULL;
 		}
-		(*index)++;
+		AddIndex(index, array, 1);
 		Operand* p = GetOperand(array, index);
 		if (p == NULL) {
 			free(operand);
@@ -436,13 +518,13 @@ Operand* GetOperand(Array* array, int* index) {
 		operand->type = OperandType_Unar;
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Inverse) {
+	else if (GetType(array, index) == TokenType_Inverse) {
 		operand = (Operand*)malloc(sizeof(Operand));
 		if (operand == NULL) {
 			ERROR_CODE = 10;
 			return NULL;
 		}
-		(*index)++;
+		AddIndex(index, array, 1);
 		Operand* p = GetOperand(array, index);
 		if (p == NULL) {
 			free(operand);
@@ -452,7 +534,7 @@ Operand* GetOperand(Array* array, int* index) {
 		operand->type = OperandType_Inverse;
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_False || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_True) {
+	else if (GetType(array, index) == TokenType_False || GetType(array, index) == TokenType_True) {
 		operand = (Operand*)malloc(sizeof(Operand));
 		if (operand == NULL) {
 			ERROR_CODE = 10;
@@ -465,26 +547,25 @@ Operand* GetOperand(Array* array, int* index) {
 		}
 		operand->data = p;
 		operand->type = OperandType_LogicConst;
-		(*index)++;
+		AddIndex(index, array, 1);
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Name) {
+	else if (GetType(array, index) == TokenType_Name) {
 		operand = GetFunction(array, index);
 		if (operand == NULL) {
 			operand = GetVariable(array, index);
-			(*index)++;
+			AddIndex(index, array, 1);
 			if (operand == NULL) {
 				return NULL;
 			}
 		}
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Int || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Float) {
+	else if (GetType(array, index) == TokenType_Int || GetType(array, index) == TokenType_Float) {
 		Const* number = NULL;
 		number = GetNumber2(array, index);
-		(*index)++;
+		AddIndex(index, array, 1);
 		if (number == NULL) {
-			ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 			ERROR_CODE = 6;
 			return NULL;
 		}
@@ -498,27 +579,27 @@ Operand* GetOperand(Array* array, int* index) {
 		operand->type = OperandType_Number;
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_LeftBracket) {
-		(*index)++;
+	else if (GetType(array, index) == TokenType_LeftBracket) {
+		AddIndex(index, array, 1);
 		int lastIndex = *index;
 		operand = GetArithmetic(array, index);
-		if (operand == NULL && (*(Token*)(((Token*)array->data) + *index)).type != TokenType_RightBracket) {
+		if (operand == NULL && GetType(array, index) != TokenType_RightBracket) {
 			return NULL;
 		}
 		else if (operand == NULL) {
-			*index = lastIndex;
+			AddIndex(index, array, -(*index-lastIndex));
 			operand = GetLogic(array, index);
-			if (operand == NULL && (*(Token*)(((Token*)array->data) + *index)).type != TokenType_RightBracket) {
+			if (operand == NULL && GetType(array, index) != TokenType_RightBracket) {
 				return NULL;
 			}
 		}
-		(*index)++;
+		AddIndex(index, array, 1);
 		return operand;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_RightBracket) {
+	else if (GetType(array, index) == TokenType_RightBracket) {
 		return NULL;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Str) {
+	else if (GetType(array, index) == TokenType_Str) {
 		operand = (Operand*)malloc(sizeof(Operand));
 		if (operand == NULL) {
 			ERROR_CODE = 10;
@@ -526,12 +607,11 @@ Operand* GetOperand(Array* array, int* index) {
 		}
 		operand->data = ((Token*)(((Token*)array->data) + *index))->data;
 		operand->type = OperandType_Str;
-		(*index)++;
+		AddIndex(index, array, 1);
 		return operand;
 	}
 	else {
 		ERROR_CODE = 8;
-		ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 		return NULL;
 	}
 }
@@ -560,7 +640,6 @@ Operand* GetArithmetic(Array* array, int* index) {
 	if (op != NULL) {
 		if (op->type == OperandType_Str) {
 			ERROR_CODE = 11;
-			ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 			freeOperand(op);
 			free(operands);
 			free(operations);
@@ -572,14 +651,13 @@ Operand* GetArithmetic(Array* array, int* index) {
 	cvector_init(operations);
 	if (op != NULL) {
 		cvector_push_back(operands, op);
-		while ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpDiv || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpMul || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpSub || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpAdd) {
+		while (GetType(array, index) == TokenType_OpDiv || GetType(array, index) == TokenType_OpMul || GetType(array, index) == TokenType_OpSub || GetType(array, index) == TokenType_OpAdd) {
 			cvector_push_back(operations, GetOperation(((Token*)array->data) + *index));
-			(*index)++;
+			AddIndex(index, array, 1);
 			op = GetOperand(array, index);
 			if (op != NULL) {
 				if (op->type == OperandType_Str) {
 					ERROR_CODE = 11;
-					ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 					freeOperand(op);
 					for (int i = 0; i < cvector_size(operands); i++) {
 						freeOperand(cvector_get(operands, i));
@@ -608,12 +686,11 @@ Operand* GetArithmetic(Array* array, int* index) {
 				cvector_free(operations);
 				free(operations);
 				free(arithmetic);
-				ERROR_CODE = 10;
 				return NULL;
 			}
 		
 		}
-		if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_And || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Or || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Equals || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_NotEquals || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_More || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_EqualsOrMore || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Less || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_EqualsOrLess || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Inverse) {
+		if (GetType(array, index) == TokenType_And || GetType(array, index) == TokenType_Or || GetType(array, index) == TokenType_Equals || GetType(array, index) == TokenType_NotEquals || GetType(array, index) == TokenType_More || GetType(array, index) == TokenType_EqualsOrMore || GetType(array, index) == TokenType_Less || GetType(array, index) == TokenType_EqualsOrLess || GetType(array, index) == TokenType_Inverse) {
 			if (cvector_size(operands) != 0) {
 				for (int i = 0; i < cvector_size(operands); i++) {
 					freeOperand(cvector_get(operands, i));
@@ -717,7 +794,6 @@ Operand* GetArithmetic(Array* array, int* index) {
 		cvector_free(operations);
 		free(operations);
 		free(arithmetic);
-		ERROR_CODE = 10;
 		return NULL;
 	}
 }
@@ -746,7 +822,6 @@ Operand* GetLogic(Array* array, int* index) {
 	if (op != NULL) {
 		if (op->type == OperandType_Str) {
 			ERROR_CODE = 11;
-			ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 			freeOperand(op);
 			free(operands);
 			free(operations);
@@ -758,14 +833,13 @@ Operand* GetLogic(Array* array, int* index) {
 	cvector_init(operations);
 	if (op != NULL) {
 		cvector_push_back(operands, op);
-		while ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_And || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Or || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Equals || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_NotEquals || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_More || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_EqualsOrMore || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_Less || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_EqualsOrLess) {
+		while (GetType(array, index) == TokenType_And || GetType(array, index) == TokenType_Or || GetType(array, index) == TokenType_Less || GetType(array, index) == TokenType_EqualsOrLess || GetType(array, index) == TokenType_Equals || GetType(array, index) == TokenType_NotEquals || GetType(array, index) == TokenType_More || GetType(array, index) == TokenType_EqualsOrMore) {
 			cvector_push_back(operations, GetLogicOperation(((Token*)array->data) + *index));
-			(*index)++;
+			AddIndex(index, array, 1);
 			op = GetOperand(array, index);
 			if (op != NULL) {
 				if (op->type == OperandType_Str) {
 					ERROR_CODE = 11;
-					ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
 					freeOperand(op);
 					for (int i = 0; i < cvector_size(operands); i++) {
 						freeOperand(cvector_get(operands, i));
@@ -794,7 +868,6 @@ Operand* GetLogic(Array* array, int* index) {
 				cvector_free(operations);
 				free(operations);
 				free(logic);
-				ERROR_CODE = 10;
 				return NULL;
 			}
 		}
@@ -883,39 +956,46 @@ Operand* GetLogic(Array* array, int* index) {
 		cvector_free(operations);
 		free(operations);
 		free(logic);
-		ERROR_CODE = 10;
 		return NULL;
 	}
 }
 
 Part* GetSetting(Array* array, int* index) {
-	Part* part;
-	Operand* operand = GetVariable(array, index);
-	if (operand == NULL) {
+	Part* part = (Part*)malloc(sizeof(Part));
+	part->type = PartType_Error;
+	if (part == NULL) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
-	(*index)++;
-	if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpMul || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpSub || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpDiv || (*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpAdd) {
+	Operand* operand = GetVariable(array, index);
+	if (operand == NULL) {
+		ERROR_CODE = 3;
+		free(part);
+		return NULL;
+	}
+	AddIndex(index, array, 1);
+	if (GetType(array, index) == TokenType_OpMul || GetType(array, index) == TokenType_OpSub || GetType(array, index) == TokenType_OpDiv || GetType(array, index) == TokenType_OpAdd) {
 		enum OpType last = (*(Token*)(((Token*)array->data) + *index)).type;
 		if ((*(Token*)(((Token*)array->data) + *index + 1)).type != TokenType_OpEquals) {
+			AddIndex(index, array, 1);
 			freeOperand(operand);
 			ERROR_CODE = 5;
+			free(part);
 			return NULL;
 		}
-		(*index) += 2;
+		AddIndex(index, array, 2);
 		Operand* source = GetArithmetic(array, index);
 		if (source == NULL) {
 			freeOperand(operand);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		Arithmetic* arithmetic = (Arithmetic*)malloc(sizeof(Arithmetic));
 		if (arithmetic == NULL) {
 			freeOperand(operand);
 			freeOperand(source);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		arithmetic->operandsCount = 2;
 		arithmetic->operationsCount = 1;
@@ -925,7 +1005,7 @@ Part* GetSetting(Array* array, int* index) {
 			freeOperand(source);
 			free(arithmetic);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		arithmetic->operands[0] = *operand;
 		arithmetic->operands[1] = *source;
@@ -936,7 +1016,7 @@ Part* GetSetting(Array* array, int* index) {
 			free(arithmetic->operands);
 			free(arithmetic);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		if (last == TokenType_OpMul) {
 			arithmetic->operations[0] = OpType_Mul;
@@ -950,15 +1030,6 @@ Part* GetSetting(Array* array, int* index) {
 		else if (last == TokenType_OpAdd) {
 			arithmetic->operations[0] = OpType_Add;
 		}
-		else {
-			freeOperand(operand);
-			freeOperand(source);
-			free(arithmetic->operands);
-			free(arithmetic->operations);
-			free(arithmetic);
-			ERROR_CODE = 10;
-			return NULL;
-		}
 		Operand* expression = (Operand*)malloc(sizeof(Operand));
 		if (expression == NULL) {
 			freeOperand(operand);
@@ -967,7 +1038,7 @@ Part* GetSetting(Array* array, int* index) {
 			free(arithmetic->operations);
 			free(arithmetic);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		expression->data = arithmetic;
 		expression->type = OperandType_Arithmetic;
@@ -980,97 +1051,78 @@ Part* GetSetting(Array* array, int* index) {
 			free(arithmetic);
 			free(expression);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		setting->variable = operand;
 		setting->source = expression;
-		part = (Part*)malloc(sizeof(Part));
-		if (part == NULL) {
-			freeOperand(operand);
-			freeOperand(source);
-			free(setting);
-			ERROR_CODE = 10;
-			return NULL;
-		}
 		part->data = setting;
 		part->type = PartType_Set;
 		return part;
 	}
-	else if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_OpEquals) {
-		(*index)++;
+	else if (GetType(array, index) == TokenType_OpEquals) {
+		AddIndex(index, array, 1);
 		Operand* source = GetArithmetic(array, index);
 		if (source == NULL) {
 			freeOperand(operand);
-			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		Setting* setting = (Setting*)malloc(sizeof(Setting));
 		if (setting == NULL) {
 			freeOperand(source);
 			freeOperand(operand);
 			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		setting->variable = operand;
 		setting->source = source;
-		part = (Part*)malloc(sizeof(Part));
-		if (part == NULL) {
-			freeOperand(operand);
-			freeOperand(source);
-			free(setting);
-			ERROR_CODE = 10;
-			return NULL;
-		}
 		part->data = setting;
 		part->type = PartType_Set;
 		return part;
 	}
 	else {
-		(*index)--;
 		free(operand);
 		ERROR_CODE = 5;
-		ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
+		free(part);
 		return NULL;
 	}
 }
 
 Part* GetDel(Array* array, int* index) {
-	Part* part;
-	if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Del) {
+	Part* part = (Part*)malloc(sizeof(Part));
+	if (part == NULL) {
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	if (GetType(array, index) != TokenType_Del) {
 		ERROR_CODE = 2;
-		ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
+		free(part);
 		return NULL;
 	}
 	else {
-		(*index)++;
+		part->type = PartType_Error;
+		AddIndex(index, array, 1);
 		Operand* operand = GetVariable(array, index);
 		if (operand == NULL) {
 			ERROR_CODE = 3;
-			ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
-			return NULL;
+			return part;
 		}
-		if ((*(Token*)(((Token*)array->data) + *index + 1)).type != TokenType_End && (*(Token*)(((Token*)array->data) + *index + 1)).type != TokenType_Sep && (*(Token*)(((Token*)array->data) + *index + 1)).type != TokenType_RightFigureBracket) {
+		int new_index = *index + 1;
+		enum TokenType next = GetType(array, &new_index);
+		if (next != TokenType_End && next != TokenType_Sep && next != TokenType_RightFigureBracket) {
 			freeOperand(operand);
 			ERROR_CODE = 4;
-			ERROR_POS = (*(Token*)(((Token*)array->data) + *index)).coord;
-			return NULL;
-		}
-		part = (Part*)malloc(sizeof(Part));
-		if (part == NULL) {
-			freeOperand(operand);
-			ERROR_CODE = 10;
-			return NULL;
+			return part;
 		}
 		part->data = operand;
 		part->type = PartType_Del;
-		(*index)++;
+		AddIndex(index, array, 1);
 		return part;
 	}
 }
 
 Part* GetString(Array* array, int* index) {
 	Part* part;
-	if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Str) {
+	if (GetType(array, index) != TokenType_Str) {
 		ERROR_CODE = 8;
 		return NULL;
 	}
@@ -1088,45 +1140,55 @@ Part* GetString(Array* array, int* index) {
 		}
 		part->data = (*(Token*)(((Token*)array->data) + *index)).data;
 		part->type = PartType_Str;
-		(*index)++;
+		AddIndex(index, array, 1);
 		return part;
 	}
 }
 
 Part* Get_Logic_Construction(Array* array, int* index, int type) {
-	Part* part;
-	if (((*(Token*)(((Token*)array->data) + *index)).type != TokenType_If && type == 0) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Repeat && type == 1) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Elif && type == 2) || ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_Else && type == 3)) {
-		ERROR_CODE = 8;
+	Part* part = (Part*)malloc(sizeof(Part));
+	if (part == NULL) {
+		ERROR_CODE = 10;
 		return NULL;
 	}
-	(*index)++;
+	if ((GetType(array, index) != TokenType_If && type == 0) || (GetType(array, index) != TokenType_Repeat && type == 1) || (GetType(array, index) != TokenType_Elif && type == 2) || (GetType(array, index) != TokenType_Else && type == 3)) {
+		ERROR_CODE = 8;
+		free(part);
+		return NULL;
+	}
+	part->type = PartType_Error;
+	AddIndex(index, array, 1);
 	Operand* logic;
 	if (type != 3) {
-		if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_LeftBracket) {
+		if (GetType(array, index) != TokenType_LeftBracket) {
 			ERROR_CODE = 8;
-			return NULL;
+			return part;
 		}
-		(*index)++;
+		AddIndex(index, array, 1);
 		logic = GetLogic(array, index);
 		if (logic == NULL) {
-			return NULL;
+			return part;
 		}
-		(*index)++;
+		if (GetType(array, index) != TokenType_RightBracket) {
+			ERROR_CODE = 8;
+			return part;
+		}
+		AddIndex(index, array, 1);
 	}
-	if ((*(Token*)(((Token*)array->data) + *index)).type != TokenType_LeftFigureBracket) {
+	if ((*(((Token*)array->data) + *index)).type != TokenType_LeftFigureBracket) {
 		ERROR_CODE = 8;
 		if (type != 3) {
 			freeOperand(logic);
 		}
-		return NULL;
+		return part;
 	}
-	(*index)++;
+	AddIndex(index, array, 1);
 	Expression* expression = GetExpression(array, index, 1);
 	if (expression == NULL) {
 		if (type != 3) {
 			freeOperand(logic);
 		}
-		return NULL;
+		return part;
 	}
 	Logic_Construction* logic_construction = (Logic_Construction*)malloc(sizeof(Logic_Construction));
 	if (logic_construction == NULL) {
@@ -1135,7 +1197,7 @@ Part* Get_Logic_Construction(Array* array, int* index, int type) {
 			freeOperand(logic);
 		}
 		freeExpression(expression);
-		return NULL;
+		return part;
 	}
 	if (type != 3) {
 		logic_construction->condition = logic->data;
@@ -1158,14 +1220,6 @@ Part* Get_Logic_Construction(Array* array, int* index, int type) {
 		logic_construction->logicPartType = LogicPartType_Else;
 		break;
 	}
-	part = (Part*)malloc(sizeof(Part));
-	if (part == NULL) {
-		ERROR_CODE = 10;
-		freeOperand(logic);
-		freeExpression(expression);
-		freeLogicConstruction(logic_construction);
-		return NULL;
-	}
 	part->data = logic_construction;
 	part->type = PartType_Logic_Construction;
 	return part;
@@ -1177,11 +1231,21 @@ Part* GetPart(Array* array, int* index) {
 	if (IF_TYPE == 2 || IF_TYPE == 1) {
 		part = Get_Logic_Construction(array, index, 2);
 		if (part == NULL) {
+			//AddIndex(index, array, -(*index - pos));
 			part = Get_Logic_Construction(array, index, 3);
 			IF_TYPE = 0;
-			if (part != NULL) {
+			if (part != NULL && part->type != PartType_Error) {
 				return part;
 			}
+			else if(part != NULL){
+				free(part);
+				return NULL;
+			}
+			//AddIndex(index, array, -(*index - pos));
+		}
+		else if (part != NULL && part->type == PartType_Error) {
+			free(part);
+			return NULL;
 		}
 		else {
 			IF_TYPE = 2;
@@ -1190,23 +1254,23 @@ Part* GetPart(Array* array, int* index) {
 	}
 	part = GetString(array, index);
 	if (part == NULL) {
-		*index = pos;
+		AddIndex(index, array, -(*index - pos));
 		part = GetDel(array, index);
 		if (part == NULL) {
-			*index = pos;
+			AddIndex(index, array, -(*index - pos));
 			part = GetSetting(array, index);
 			if (part == NULL) {
-				*index = pos;
+				AddIndex(index, array, -(*index - pos));
 				part = Get_Logic_Construction(array, index, 0);
 				if (part == NULL) {
-					*index = pos;
+					AddIndex(index, array, -(*index - pos));
 					part = Get_Logic_Construction(array, index, 1);
 					if (part == NULL) {
-						*index = pos;
+						AddIndex(index, array, -(*index - pos));
 						Operand* operand;
 						operand = GetArithmetic(array, index);
 						if (operand == NULL) {
-							*index = pos;
+							AddIndex(index, array, -(*index - pos));
 							operand = GetLogic(array, index);
 							if (operand == NULL) {
 								return NULL;
@@ -1232,17 +1296,33 @@ Part* GetPart(Array* array, int* index) {
 						}
 						IF_TYPE = 0;
 					}
+					else if (part != NULL && part->type == PartType_Error) {
+						free(part);
+						return NULL;
+					}
 					else {
 						IF_TYPE = 0;
 					}
+				}
+				else if (part != NULL && part->type == PartType_Error) {
+					free(part);
+					return NULL;
 				}
 				else {
 					IF_TYPE = 1;
 				}
 			}
+			else if (part != NULL && part->type == PartType_Error) {
+				free(part);
+				return NULL;
+			}
 			else {
 				IF_TYPE = 0;
 			}
+		}
+		else if (part != NULL && part->type == PartType_Error) {
+			free(part);
+			return NULL;
 		}
 		else {
 			IF_TYPE = 0;
@@ -1252,34 +1332,38 @@ Part* GetPart(Array* array, int* index) {
 }
 
 Expression* GetExpression(Array* array, int* index, int isBody) {
-	int i = *index;
 	cvector* parts = (cvector*)malloc(sizeof(cvector));
 	if (parts == NULL) {
-		error2(ERRORS[10]);
+		error2(errors3[10]);
 		return NULL;
 	}
 	Part* part;
 	cvector_init(parts);
 	short isFinish = 0;
-	while (((*(((Token*)array->data) + i)).type != TokenType_End && !isBody) || ((*(((Token*)array->data) + i)).type != TokenType_RightFigureBracket && isBody)) {
-		if ((*(((Token*)array->data) + i)).type == TokenType_Sep) {
-			i++;
+	while (((*(((Token*)array->data) + *index)).type != TokenType_End && !isBody) || ((*(((Token*)array->data) + *index)).type != TokenType_RightFigureBracket && isBody)) {
+		if ((*(((Token*)array->data) + *index)).type == TokenType_Sep) {
+			AddIndex(index, array, 1);
 			isFinish = 0;
+			continue;
 		}
-		else if ((*(((Token*)array->data) + i)).type == TokenType_NewLineSep) {
-			i++;
+		else if ((*(((Token*)array->data) + *index)).type == TokenType_NewLineSep) {
+			AddIndex(index, array, 1);
 			isFinish = 0;
 			part = (Part*)malloc(sizeof(Part));
 			if (part == NULL) {
-				error2(ERRORS[10]);
+				error2(errors3[10]);
 				return NULL;
 			}
 			part->data = NULL;
 			part->type = PartType_NewLine;
 			cvector_push_back(parts, part);
 			part = NULL;
+			continue;
+		}else if((*(((Token*)array->data) + *index)).type == TokenType_NewLine){
+		    AddIndex(index, array, 1);
+			continue;
 		}
-		part = GetPart(array, &i);
+		part = GetPart(array, index);
 		if (part != NULL) {
 			cvector_push_back(parts, part);
 			isFinish = 1;
@@ -1290,13 +1374,17 @@ Expression* GetExpression(Array* array, int* index, int isBody) {
 		}
 	}
 	if (isFinish == 0) {
-		error(ERRORS[1], ERROR_POS);
+		if (!isBody) {
+			error(errors3[1]);
+		}
 		for (int j = 0; j < cvector_size(parts); j++)
 			freePart(cvector_get(parts, j));
 		return NULL;
 	}
 	else if (isFinish == -1) {
-		error(ERRORS[ERROR_CODE], ERROR_POS);
+		if (!isBody) {
+			error(errors3[ERROR_CODE]);
+		}
 		cvector_free(parts);
 		free(parts);
 		return NULL;
@@ -1306,7 +1394,9 @@ Expression* GetExpression(Array* array, int* index, int isBody) {
 		if (expression == NULL) {
 			cvector_free(parts);
 			free(parts);
-			error2(ERRORS[ERROR_CODE]);
+			if (!isBody) {
+				error2(errors3[ERROR_CODE]);
+			}
 			return NULL;
 		}
 		expression->count = cvector_size(parts);
@@ -1315,7 +1405,9 @@ Expression* GetExpression(Array* array, int* index, int isBody) {
 			free(expression);
 			cvector_free(parts);
 			free(parts);
-			error2(ERRORS[ERROR_CODE]);
+			if (!isBody) {
+				error2(errors3[ERROR_CODE]);
+			}
 			return NULL;
 		}
 		for (int j = 0; j < cvector_size(parts); j++) {
@@ -1323,12 +1415,16 @@ Expression* GetExpression(Array* array, int* index, int isBody) {
 		}
 		cvector_free(parts);
 		free(parts);
-		*index = i + 1;
+		AddIndex(index, array, 1);
 		return expression;
 	}
 }
 
 Expression* parse(Array* array) {
+	environment = getCurrent();
+	(*environment).type = 1;
+	(*environment).line = 1;
+	(*environment).pos = 1;
 	int i = 0;
 	Expression* expression = GetExpression(array, &i, 0);
 	return expression;

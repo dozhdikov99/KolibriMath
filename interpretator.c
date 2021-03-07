@@ -7,9 +7,12 @@
 
 cvector* variables;
 cvector* functions;
+Environment* environment;
 
 char* stringInput;
 short value = 0;
+const char* errors5[] = {"ошибка выделения памяти [код: 5.0].", "не удалось выполнить функцию \'"};
+char* helpString;
 
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
@@ -19,6 +22,14 @@ Result* runInverse(Operand* operand);
 Result* runLogicConst(Const* logicConst);
 Result* runLogic(Logic* logic);
 void runPart(Part* part);
+
+char* getString(char* name){
+	char* str = malloc((strlen(errors5[1])+strlen(name)+15)*sizeof(char));
+	strcat(str, errors5[1]);
+	strcat(str, name);
+	strcat(str, "\' [код: 5.3].");
+	return str;
+}
 
 void getNumberFromStr(Result* result) {
 	int i = 0;
@@ -110,7 +121,7 @@ void print2(Result* result) {
 Result* runStr(Operand* operand) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	char* data = (char*)((Operand*)operand)->data;
@@ -122,7 +133,7 @@ Result* runStr(Operand* operand) {
 Result* runVariable(Operand* operand) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	char* name = (char*)((Operand*)operand)->data;
@@ -145,7 +156,7 @@ Result* runVariable(Operand* operand) {
 Result* runNumber(Const* number) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	if ((*(Const*)number).type == VarType_Float) {
@@ -166,7 +177,7 @@ Result* runNumber(Const* number) {
 Result* runLogicConst(Const* logicConst){
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	if ((*(Const*)logicConst).type == VarType_Logic) {
@@ -231,7 +242,7 @@ Result* runFunction(Function* function) {
 	result = (Result*)malloc(sizeof(Result));
 	memset(stringInput, 0, sizeof(stringInput));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	result->type = ResultType_Undefined;
@@ -249,6 +260,7 @@ Result* runFunction(Function* function) {
 			printf("Разработчик: Дождиков Игорь.\n");
 			printf("(C) 2021 год.\n");
 			printf("Хочется сказать отдельное спасибо команде Kolibri OS за помощь!\n");
+			printf("Рустем, спасибо за библиотеку cvector!\n");
 			result->type = ResultType_Spec;
 		}
 		else if (!(strcmp((*(Function*)function).name, "lang"))) {
@@ -273,14 +285,14 @@ Result* runFunction(Function* function) {
 			gets(stringInput);
 			if (stringInput == NULL) {
 				result->type = ResultType_Spec;
-				printf("\nСтрока не может быть слишком длинной.");
+				printf("\nСтрока не может быть слишком длинной [код 5.1].\n");
 				return result;
 			}
 			getNumberFromStr(result);
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена.\n", function->name);
+			printf("\nФункция \'%s\' с таким число аргументов не найдена [код 5.2].\n", function->name);
 			return result;
 		}
 	}
@@ -297,7 +309,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'int\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -313,7 +327,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'float\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -329,7 +345,7 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					error2("Функция \'sqrt\' принимает отрицательный аргумент.");
+					error2("функция \'sqrt\' принимает отрицательный аргумент [код 5.4].");
 					return result;
 				}
 				result->type = VarType_Float;
@@ -339,7 +355,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'sqrt\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -355,7 +373,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'sin\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -371,7 +391,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'cos\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -394,7 +416,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'pow2\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -417,7 +441,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'abs\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -434,7 +460,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'file\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -446,7 +474,7 @@ Result* runFunction(Function* function) {
 				if (stringInput == NULL) {
 					free(operand);
 					result->type = ResultType_Spec;
-					error2("Строка не может быть слишком длинной.");
+					error2("cтрока не может быть слишком длинной [код: 5.1].");
 					return result;
 				}
 				getNumberFromStr(result);
@@ -457,7 +485,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'input\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -473,7 +503,9 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					error2("Не удалось выполнить функцию \'ceil\'.");
+					helpString = getString((*(Function*)function).name);
+				    error2(helpString);
+				    free(helpString);
 					return result;
 				}
 				free(operand);
@@ -483,7 +515,9 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'input\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
@@ -500,7 +534,9 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					error2("Не удалось выполнить функцию \'mod\'.");
+					helpString = getString((*(Function*)function).name);
+				    error2(helpString);
+				    free(helpString);
 					return result;
 				}
 				free(operand);
@@ -510,13 +546,15 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'input\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена.\n", function->name);
+			printf("\nФункция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
 			return result;
 		}
 	}
@@ -539,7 +577,7 @@ Result* runFunction(Function* function) {
 						free(operand1);
 					}
 					result->type = ResultType_Spec;
-					error2("Функция \'pow\' принимает нулевой показатель.");
+					error2("функция \'pow\' принимает нулевой показатель [код: 5.6].");
 					return result;
 				}
 			}
@@ -551,19 +589,21 @@ Result* runFunction(Function* function) {
 					free(operand1);
 				}
 				result->type = ResultType_Spec;
-				error2("Не удалось выполнить функцию \'pow\'.");
+				helpString = getString((*(Function*)function).name);
+				error2(helpString);
+				free(helpString);
 				return result;
 			}
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена.\n", function->name);
+			printf("\nФункция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
 			return result;
 		}
 	}
 	else {
 		result->type = ResultType_Spec;
-		printf("Функция \'%s\' с таким число аргументов не найдена.\n", function->name);
+		printf("Функция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
 		return result;
 	}
 	return result;
@@ -572,7 +612,7 @@ Result* runFunction(Function* function) {
 Result* runOperation(Result* one, Result* two, enum OpType type) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	double res;
@@ -715,7 +755,7 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 Result* runLogicOperation(Result* one, Result* two, enum LOpType type) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	if (one->type == VarType_Undefined || two->type == VarType_Undefined) {
@@ -758,25 +798,25 @@ Result* runLogicOperation(Result* one, Result* two, enum LOpType type) {
 Result* runArithmetic(Arithmetic* arithmetic) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* operands = (cvector*)malloc(sizeof(cvector));
 	if (operands == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* operations = (cvector*)malloc(sizeof(cvector));
 	if (operations == NULL) {
 		free(operands);
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* expression = (cvector*)malloc(sizeof(cvector));
 	if (expression == NULL) {
 		free(operands);
 		free(operations);
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector_init(expression);
@@ -856,25 +896,25 @@ Result* runArithmetic(Arithmetic* arithmetic) {
 Result* runLogic(Logic* logic) {
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* operands = (cvector*)malloc(sizeof(cvector));
 	if (operands == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* operations = (cvector*)malloc(sizeof(cvector));
 	if (operations == NULL) {
 		free(operands);
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector* expression = (cvector*)malloc(sizeof(cvector));
 	if (expression == NULL) {
 		free(operands);
 		free(operations);
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return NULL;
 	}
 	cvector_init(expression);
@@ -969,7 +1009,7 @@ void runSetting(Part* part) {
 	if (variable == NULL) {
 		variable = (Variable_*)malloc(sizeof(Variable_));
 		if (variable == NULL) {
-			error2("Ошибка выделения памяти.");
+			error2(errors5[0]);
 			return;
 		}
 		variable->name = (char*)(*(Operand*)((Setting*)part->data)->variable).data;
@@ -1077,7 +1117,7 @@ void runPart(Part* part) {
 short initTables() {
 	variables = (cvector*)malloc(sizeof(cvector));
 	if (variables == NULL) {
-		error2("Ошибка выделения памяти.");
+		error2(errors5[0]);
 		return 0;
 	}
 	cvector_init(variables);
@@ -1087,6 +1127,8 @@ short initTables() {
 }
 
 void run(Expression* expression) {
+	environment = getCurrent();
+	(*environment).type = 2;
 	for (int i = 0; i < expression->count; i++) {
 		runPart(expression->parts + i);
 	}

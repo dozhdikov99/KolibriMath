@@ -42,6 +42,7 @@ enum TokenType {
 	TokenType_True,
 	TokenType_Elif,
 	TokenType_Else,
+	TokenType_NewLine,
 	TokenType_End
 };
 
@@ -49,6 +50,7 @@ typedef struct {
 	char* data;
 	enum TokenType type;
 	int coord;
+	int line;
 } Token;
 
 typedef struct {

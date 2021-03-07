@@ -9,8 +9,24 @@
 
 #include <stdio.h>
 #include "globals.h"
+#include "cvector.h"
 
-extern void error(const char* msg, int pos);
+typedef struct
+{
+    char* file;
+    char* str;
+    short isFile;
+    short type; // 0 - lexer, 1 - parser, 2 - interpretator
+    unsigned short line;
+    unsigned short pos;
+} Environment;
+
+extern void error(const char* msg);
 extern void error2(const char* msg);
+extern void initStack();
+extern void clearStack();
+extern void addEnvironment(Environment* environment);
+extern void removeEnvironment();
+extern Environment* getCurrent();
 #endif
 

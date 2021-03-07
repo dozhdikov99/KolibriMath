@@ -7,19 +7,72 @@
 #include <string.h>
 #include "globals.h"
 
-void error(const char* msg, int pos) {
-	if (IS_FILE == 0) {
-		printf("%s\n", String);
-		for (int i = 0; i < pos; i++)
-			printf(" ");
-		printf("^");
+cvector* stack;
+const char* errors4[] = {"ошибка выделения памяти [код: 4.0]."};
+
+void freeEnvironment(Environment* environment){
+	free(environment);
+}
+
+void initStack(){
+	stack = (cvector*)malloc(sizeof(cvector));
+	if(stack == NULL){
+		error2(errors4[1]);
+		return;
 	}
-	else {
-		printf("(символ %d)\n", pos);
+	cvector_init(stack);
+}
+
+void clearStack(){
+	for(int i = 0; i < cvector_size(stack); i++){
+		freeEnvironment(cvector_get(stack, i));
 	}
-	printf("\nПроизошла ошибка: %s\n", msg);
+	cvector_free(stack);
+	free(stack);
+}
+
+void addEnvironment(Environment* environment){
+	cvector_push_back(stack, environment);
+}
+
+void removeEnvironment(){
+	Environment* environment = cvector_get(stack, cvector_size(stack)-1);
+	vector_delete(stack, cvector_size(stack)-1);
+	freeEnvironment(environment);
+}
+
+Environment* getCurrent(){
+	if(cvector_size(stack) > 0){
+		return (Environment*)cvector_get(stack, cvector_size(stack)-1);
+	}else{
+		return NULL;
+	}
+}
+
+void error(const char* msg) {
+	Environment* environment;
+	for(int i = 0; i < cvector_size(stack); i++){
+		environment = cvector_get(stack, i);
+		if((*environment).isFile){
+			if((*environment).type != 2){
+				printf("в файле \'%s\' (строка %hu, символ %hu)\n", environment->file, (*environment).line, (*environment).pos);
+			    printf("%s\n", environment->str);
+				printf("^\n");
+			}else{
+				printf("в файле \'%s\'\n", environment->file);
+			}
+		}else{
+			printf("%s\n", environment->str);
+			for (int p = 0; p < (*environment).pos; p++)
+		    {
+				printf(" ");
+			}
+		    printf("^\n");
+		}
+	}
+	printf("\nпроизошла ошибка: %s\n", msg);
 }
 
 void error2(const char* msg) {
-	printf("\nПроизошла ошибка: %s\n", msg);
+	printf("\nпроизошла ошибка: %s\n", msg);
 }

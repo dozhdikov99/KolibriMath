@@ -14,21 +14,6 @@
 #include <stdlib.h>
 #include "utils.h"
 
-static const char* ERRORS[] = {
-	"При парсинге произошла ошибка.",
-	"Неожиданный конец выражения.",
-	"Ожидалась операция удаления.",
-	"Ожидалось название переменной.",
-	"Ожидался символ \',\' или конец выражения.",
-	"Ожидался символ \'=\'",
-	"Ошибка при получении числа.",
-	"Ожидалось название функции.",
-	"Неожиданный символ.",
-	"Ожидалось число.",
-	"Ошибка выделения памяти.",
-	"Строка не может быть частью арифметического выражения."
-};
-
 enum PartType {
 	PartType_Set,
 	PartType_Arithmetic,
@@ -36,7 +21,8 @@ enum PartType {
 	PartType_NewLine,
 	PartType_Str,
 	PartType_Logic,
-	PartType_Logic_Construction
+	PartType_Logic_Construction,
+	PartType_Error
 };
 
 enum VarType {
