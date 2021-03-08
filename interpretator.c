@@ -11,8 +11,7 @@ Environment* environment;
 
 char* stringInput;
 short value = 0;
-const char* errors5[] = {"ошибка выделения памяти [код: 5.0].", "не удалось выполнить функцию \'"};
-char* helpString;
+const char* errors5[] = {"ошибка выделения памяти [код: 5.0].", "строка не может быть слишком длинной [код 5.1].", "функция с таким числом аргументов не найдена [код 5.2].", "не удалось выполнить функцию [код: 5.3]", "функция \'sqrt\' принимает отрицательный аргумент [код 5.4].", "функция \'pow\' принимает нулевой показатель [код: 5.5]."};
 
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
@@ -22,14 +21,6 @@ Result* runInverse(Operand* operand);
 Result* runLogicConst(Const* logicConst);
 Result* runLogic(Logic* logic);
 void runPart(Part* part);
-
-char* getString(char* name){
-	char* str = malloc((strlen(errors5[1])+strlen(name)+15)*sizeof(char));
-	strcat(str, errors5[1]);
-	strcat(str, name);
-	strcat(str, "\' [код: 5.3].");
-	return str;
-}
 
 void getNumberFromStr(Result* result) {
 	int i = 0;
@@ -238,6 +229,10 @@ Result* runInverse(Operand* operand){
 }
 
 Result* runFunction(Function* function) {
+	(*environment).type = 3;
+	(*environment).line = (*(Function*)function).line;
+	(*environment).pos = (*(Function*)function).pos;
+	(*environment).str = (*(Function*)function).name;
 	Result* result;
 	result = (Result*)malloc(sizeof(Result));
 	memset(stringInput, 0, sizeof(stringInput));
@@ -285,14 +280,14 @@ Result* runFunction(Function* function) {
 			gets(stringInput);
 			if (stringInput == NULL) {
 				result->type = ResultType_Spec;
-				printf("\nСтрока не может быть слишком длинной [код 5.1].\n");
+				error(errors5[1]);
 				return result;
 			}
 			getNumberFromStr(result);
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена [код 5.2].\n", function->name);
+			error(errors5[2]);
 			return result;
 		}
 	}
@@ -309,9 +304,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -327,9 +320,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -345,7 +336,7 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					error2("функция \'sqrt\' принимает отрицательный аргумент [код 5.4].");
+					error(errors5[5]);
 					return result;
 				}
 				result->type = VarType_Float;
@@ -355,9 +346,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -373,9 +362,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -391,9 +378,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -416,9 +401,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -441,9 +424,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -460,9 +441,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -474,7 +453,7 @@ Result* runFunction(Function* function) {
 				if (stringInput == NULL) {
 					free(operand);
 					result->type = ResultType_Spec;
-					error2("cтрока не может быть слишком длинной [код: 5.1].");
+					error(errors5[1]);
 					return result;
 				}
 				getNumberFromStr(result);
@@ -485,9 +464,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -503,9 +480,7 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					helpString = getString((*(Function*)function).name);
-				    error2(helpString);
-				    free(helpString);
+					error(errors5[3]);
 					return result;
 				}
 				free(operand);
@@ -515,9 +490,7 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
@@ -534,9 +507,7 @@ Result* runFunction(Function* function) {
 						free(operand);
 					}
 					result->type = ResultType_Spec;
-					helpString = getString((*(Function*)function).name);
-				    error2(helpString);
-				    free(helpString);
+					error(errors5[3]);
 					return result;
 				}
 				free(operand);
@@ -546,15 +517,13 @@ Result* runFunction(Function* function) {
 					free(operand);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
+			error(errors5[2]);
 			return result;
 		}
 	}
@@ -577,7 +546,7 @@ Result* runFunction(Function* function) {
 						free(operand1);
 					}
 					result->type = ResultType_Spec;
-					error2("функция \'pow\' принимает нулевой показатель [код: 5.6].");
+					error(errors5[5]);
 					return result;
 				}
 			}
@@ -589,21 +558,19 @@ Result* runFunction(Function* function) {
 					free(operand1);
 				}
 				result->type = ResultType_Spec;
-				helpString = getString((*(Function*)function).name);
-				error2(helpString);
-				free(helpString);
+				error(errors5[3]);
 				return result;
 			}
 		}
 		else {
 			result->type = ResultType_Spec;
-			printf("\nФункция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
+			error(errors5[2]);
 			return result;
 		}
 	}
 	else {
 		result->type = ResultType_Spec;
-		printf("Функция \'%s\' с таким число аргументов не найдена [код: 5.5].\n", function->name);
+		error(errors5[2]);
 		return result;
 	}
 	return result;

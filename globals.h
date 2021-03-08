@@ -8,7 +8,7 @@
 #define GLOBALS_H
 #define MAX_EXPRESSION 8192
 
-static const char* ver = "1.1.2";
+static const char* ver = "1.1.3";
 
 #endif 
 

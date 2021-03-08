@@ -393,6 +393,8 @@ Operand* GetFunction(Array* array, int* index) {
 			return NULL;
 		}
 		function->name = (char*)(*(Token*)(((Token*)array->data) + *index)).data;
+		function->line = environment->line;
+		function->pos = environment->pos;
 		AddIndex(index, array, 2);
 		Operand* arg;
 		if ((*(((Token*)array->data) + *index)).type != TokenType_Str) {

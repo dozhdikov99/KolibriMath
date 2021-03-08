@@ -89,6 +89,8 @@ typedef struct {
 	char* name;
 	Operand* operands;
 	int count;
+	int line;
+	int pos;
 } Function;
 
 typedef struct {

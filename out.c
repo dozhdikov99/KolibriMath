@@ -54,8 +54,12 @@ void error(const char* msg) {
 	for(int i = 0; i < cvector_size(stack); i++){
 		environment = cvector_get(stack, i);
 		if((*environment).isFile){
-			if((*environment).type != 2){
+			if((*environment).type == 0 || (*environment).type == 1){
 				printf("в файле \'%s\' (строка %hu, символ %hu)\n", environment->file, (*environment).line, (*environment).pos);
+			    printf("%s\n", environment->str);
+				printf("^\n");
+			}else if((*environment).type == 3){
+				printf("в файле \'%s\' (строка %hu, символ %hu)\n", environment->file, (*environment).line, (*environment).pos+1);
 			    printf("%s\n", environment->str);
 				printf("^\n");
 			}else{
