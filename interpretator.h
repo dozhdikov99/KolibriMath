@@ -7,45 +7,15 @@
 
 #define INTERPRETATOR_H
 
+#include <string.h>
+#include "data_structures.h"
 #include "globals.h"
-#include "out.h"
-#include "cvector.h"
-#include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
-#include "file.h"
-#include "parser.h"
-#include "utils.h"
 #include <ctype.h>
+#include "parser.h"
+#include "matrix.h"
 
-enum ResultType {
-	ResultType_Int,
-	ResultType_Float,
-	ResultType_Undefined,
-	ResultType_Str,
-	ResultType_Spec,
-	ResultType_Logic
-};
-
-typedef struct {
-	double value;
-	char* str;
-	enum ResultType type;
-} Result;
-
-typedef struct {
-	char* name;
-	double value;
-	enum VarType type;
-} Variable_;
-
-typedef struct {
-	void* function;
-	int args;
-	enum VarType* argTypes;
-} Function_;
-
-void print(Result result);
+void printResult(Result* result);
 
 void run(Expression* expression);
 

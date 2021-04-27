@@ -5,13 +5,23 @@
 */
 #include "interpretator.h"
 
+enum TrigonometryFuncType {
+	TrigonomertyFunc_Sin,
+	TrigonomertyFunc_Cos
+};
+
+enum InputType {
+	InputType_WithoutText,
+	InputType_WithText
+};
+
 cvector* variables;
 cvector* functions;
 Environment* environment;
 
 char* stringInput;
 short value = 0;
-const char* errors5[] = {"ошибка выделения памяти [код: 5.0].", "строка не может быть слишком длинной [код 5.1].", "функция с таким числом аргументов не найдена [код 5.2].", "не удалось выполнить функцию [код: 5.3]", "функция \'sqrt\' принимает отрицательный аргумент [код 5.4].", "функция \'pow\' принимает нулевой показатель [код: 5.5]."};
+const char* errors5[] = { "ошибка выделения памяти [код: 5.0].", "строка не может быть слишком длинной [код 5.1].", "функция с таким числом аргументов не найдена [код 5.2].", "не удалось выполнить функцию [код: 5.3]", "функция \'sqrt\' принимает отрицательный аргумент [код 5.4].", "функция \'pow\' принимает нулевой показатель [код: 5.5].", "изменение невозможно, так как переменная принадлежит другому типу [код: 5.6].", "индекс имеет недопустимый формат [код: 5.7].", "переменная с таким именем не найдена [код: 5.8].", "деление на ноль запрещено [код: 5.9].", "результат операции над матрицами не получен [код: 5.10].", "данная операция неприменима к матрицам [код: 5.11].", "переменная с таким именем уже существует [код: 5.12]." };
 
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
@@ -20,37 +30,53 @@ Result* runFunction(Function* function);
 Result* runInverse(Operand* operand);
 Result* runLogicConst(Const* logicConst);
 Result* runLogic(Logic* logic);
+Result* runMatrixInitializator(MatrixInitializator* m);
+Result* runMatrixElement(MatrixElement* element);
 void runPart(Part* part);
 
-void getNumberFromStr(Result* result) {
-	int i = 0;
-	int count = 0;
+short isNumber(Result* result) {
+	return result != NULL && result->type != VarType_Undefined && result->type != VarType_Str && result->type != VarType_FloatMatrix && result->type != VarType_IntMatrix;
+}
+
+void freeVariable(Variable_* variable) {
+	switch (variable->type) {
+	case VarType_FloatMatrix:
+	case VarType_IntMatrix:
+		matrix_free(variable->matrix);
+		free(variable);
+		break;
+	default:
+		free(variable);
+	}
+}
+
+Result* getNumberFromStr(Result* result) {
+	int symbolIndex = 0;
+	int pointsCount = 0;
 	enum ResultType type = ResultType_Int;
-	while (stringInput[i] != '\0') {
-		if (stringInput[i] == '-' && i == 0) {
-			i++;
+	while (stringInput[symbolIndex] != '\0') {
+		if (stringInput[symbolIndex] == '-' && symbolIndex == 0) {
+			symbolIndex++;
 			continue;
 		}
-		else if (isalpha(stringInput[i])) {
-			type = ResultType_Undefined;
+		else if (isalpha(stringInput[symbolIndex])) {
 			break;
 		}
-		else if (isdigit(stringInput[i])) {
-			i++;
+		else if (isdigit(stringInput[symbolIndex])) {
+			symbolIndex++;
 			continue;
 		}
-		else if (stringInput[i] == '.' && count == 0) {
-			count++;
+		else if (stringInput[symbolIndex] == '.' && pointsCount == 0) {
+			pointsCount++;
 			type = ResultType_Float;
 		}
 		else {
-			type = ResultType_Undefined;
 			break;
 		}
-		i++;
+		symbolIndex++;
 	}
-	if (i == 0) {
-		type = ResultType_Undefined;
+	if (symbolIndex == 0) {
+		type = ResultType_Spec;
 	}
 	result->type = type;
 	if (type == ResultType_Int) {
@@ -59,13 +85,14 @@ void getNumberFromStr(Result* result) {
 	else if (type == ResultType_Float) {
 		(*result).value = (double)atof2(stringInput);
 	}
+	return result;
 }
 
 Variable_* findVariable(char* name) {
-	char* var;
+	char* variableName;
 	for (int i = 0; i < cvector_size(variables); i++) {
-		var = (char*)((Variable_*)cvector_get(variables, i))->name;
-		if (!strcmp(var, name)) {
+		variableName = (char*)((Variable_*)cvector_get(variables, i))->name;
+		if (!strcmp(variableName, name)) {
 			return cvector_get(variables, i);
 		}
 	}
@@ -73,10 +100,11 @@ Variable_* findVariable(char* name) {
 }
 
 void deleteVariable(Variable_* variable) {
-	char* var;
+	char* variableName;
 	for (int i = 0; i < cvector_size(variables); i++) {
-		var = (char*)((Variable_*)cvector_get(variables, i))->name;
-		if (!strcmp(var, variable->name)) {
+		variableName = (char*)((Variable_*)cvector_get(variables, i))->name;
+		if (!strcmp(variableName, variable->name)) {
+			freeVariable((Variable_*)cvector_get(variables, i));
 			vector_delete(variables, i);
 		}
 	}
@@ -86,7 +114,7 @@ void addVariable(Variable_* variable) {
 	cvector_push_back(variables, variable);
 }
 
-void print2(Result* result) {
+void printResult(Result* result) {
 	switch ((*(Result*)result).type) {
 	case ResultType_Int:
 		printf("%d", (int)(*(Result*)result).value);
@@ -94,19 +122,447 @@ void print2(Result* result) {
 	case ResultType_Float:
 		printf("%f", (*(Result*)result).value);
 		break;
-	case ResultType_Undefined:
-		printf("undefined");
-		break;
 	case ResultType_Spec:
 		break;
 	case ResultType_Logic:
-		if((*(Result*)result).value == 0.0){
+		if ((*(Result*)result).value == 0.0) {
 			printf("false");
-		}else{
+		}
+		else {
 			printf("true");
 		}
 		break;
+	case ResultType_IntMatrix:
+	case ResultType_FloatMatrix:
+		matrix_print(result->matrix);
+		break;
 	}
+	free(result);
+}
+
+void runHelpFunc(Result* emptyResult) {
+	printf("Список доступных команд:\n");
+	printf("help() - получить сведения о командах.\n");
+	printf("about() - получить сводку о программе.\n");
+	printf("lang() - узнать информацию о языке KolibriMath.\n");
+}
+
+void runAboutFunc(Result* emptyResult) {
+	printf("Версия программы: %s.\n", ver);
+	printf("Разработчик: Дождиков Игорь.\n");
+	printf("(C) 2021 год.\n");
+	printf("Хочется сказать спасибо команде Kolibri OS за помощь!\n");
+	printf("Отдельное спасибо Рустему (rgimad) спасибо за библиотеку cvector!\n");
+}
+
+void runLangFunc(Result* emptyResult) {
+	printf("=== Справка о языке KolibriMath ===\n");
+	printf("Язык KolibriMath является интерпретируемым языком с динамической типизацией.\n");
+	printf("Основное назначение языка на данный момент - проведение расчетов.\n");
+	printf("Язык прозволяет работать с переменными двух типов: int, float. Тип задается при присваивании автоматически.\n");
+	printf("При присваивании используется следующая структура: <переменная> = <выражение>.\n");
+	printf("Поддерживаются матрицы целочисленные и дробные. Для матриц доступны операции: +, -, *, ==, !=.\n");
+	printf("Имеются блоки if(<условие>){<тело>}, elif(<условие>){<тело>}, else{<тело>}, repeat(<условие>){<тело>}.\n");
+	printf("Логические операции: & (И), | (ИЛИ), ! (НЕ), ==, !=, <=, <, >=, >.\n");
+	printf("Удаление переменной: del <переменная>.\n");
+	printf("Доступны четыре базовые операции: *, /, +, -.\n");
+	printf("Возможно написание выражений через запятые в одну строку.\n");
+	printf("Доступны функции: int(<число>), float(<число>), sqrt(<число>), pow2(<число>),\n");
+	printf("pow(<число>, <число>), sin(<число>), cos(<число>), abs(<число>), \nfile(<путь к файлу>),\n");
+	printf("input(), input(<подсказка к вводу>), ceil(<число>), mod(<число>).\n");
+	printf("intMatrix(<название переменной>, <число строк>, <число столбцов>).\n");
+	printf("floatMatrix(<название переменной>, <число строк>, <число столбцов>).\n");
+	printf("resizeMatrix(<название переменной>, <новое число строк>, <новое число столбцов>).\n");
+}
+
+void runInputFunc(Result* emptyResult, Function* function, enum InputType inputType) {
+	if (inputType == InputType_WithoutText) {
+		printf("<");
+		gets(stringInput);
+		if (stringInput == NULL) {
+			error(errors5[1]);
+		}
+		else {
+			emptyResult = getNumberFromStr(emptyResult);
+		}
+	}
+	else {
+		Result* operand = runOperand(function->operands);
+		if (operand != NULL && operand->type == VarType_Str) {
+			printf("%s", operand->str);
+			gets(stringInput);
+			if (stringInput == NULL) {
+				free(operand);
+				error(errors5[1]);
+			}
+			emptyResult = getNumberFromStr(emptyResult);
+			free(operand);
+		}
+		else {
+			if (operand != NULL) {
+				free(operand);
+			}
+			error(errors5[3]);
+		}
+	}
+
+}
+
+void runConvertTypeFunc(Result* emptyResult, Function* function, enum VarType targetType) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		switch (targetType) {
+		case VarType_Int:
+			emptyResult->type = VarType_Int;
+			(*(Result*)emptyResult).value = (*(Result*)operand).value;
+			break;
+		case VarType_Float:
+			emptyResult->type = ResultType_Float;
+			(*(Result*)emptyResult).value = (*(Result*)operand).value;
+			break;
+		default:
+			break;
+		}
+		free(operand);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runSqrtFunc(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand) && (*(Result*)operand).value > 0) {
+		(*(Result*)emptyResult).value = sqrt((*(Result*)operand).value);
+		emptyResult->type = VarType_Float;
+		free(operand);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runTrigonomertyFunc(Result* emptyResult, Function* function, enum TrigonometryFuncType functionType) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		switch (functionType) {
+		case TrigonomertyFunc_Sin:
+			(*(Result*)emptyResult).value = sin((*(Result*)operand).value);
+			break;
+		case TrigonomertyFunc_Cos:
+			(*(Result*)emptyResult).value = cos((*(Result*)operand).value);
+			break;
+		default:
+			return;
+		}
+		emptyResult->type = ResultType_Float;
+		free(operand);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runPow2Func(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		switch (operand->type) {
+		case ResultType_Float:
+			emptyResult->type = ResultType_Float;
+			break;
+		case ResultType_Int:
+			emptyResult->type = ResultType_Int;
+			break;
+		default:
+			return;
+		}
+		(*(Result*)emptyResult).value = pow((*(Result*)operand).value, 2);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runAbsFunc(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		switch (operand->type) {
+		case ResultType_Float:
+			emptyResult->type = ResultType_Float;
+			break;
+		case ResultType_Int:
+			emptyResult->type = ResultType_Int;
+			break;
+		default:
+			return;
+		}
+		(*(Result*)emptyResult).value = abs((*(Result*)operand).value);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runFileFunc(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (operand != NULL && operand->type == VarType_Str) {
+		runFromFile((char*)((Result*)operand)->str);
+		free(((Result*)operand)->str);
+		free(operand);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runCeilFunc(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		emptyResult->type = ResultType_Float;
+		(*(Result*)emptyResult).value = ceil((*(Result*)operand).value);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runModFunc(Result* emptyResult, Function* function) {
+	Result* operand = runOperand(function->operands);
+	if (isNumber(operand)) {
+		double result0 = 0;
+		emptyResult->type = ResultType_Float;
+		(*(Result*)emptyResult).value = modf((*(Result*)operand).value, &result0);
+	}
+	else {
+		if (operand != NULL) {
+			free(operand);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runPowFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	Result* operand1 = runOperand(function->operands + 1);
+	if (isNumber(operand0) && isNumber(operand1)) {
+		if ((*(Result*)operand1).value != 0) {
+			(*(Result*)emptyResult).value = pow((*(Result*)operand0).value, (*(Result*)operand1).value);
+			emptyResult->type = ResultType_Float;
+			free(operand0);
+			free(operand1);
+		}
+		else {
+			if (operand0 != NULL) {
+				free(operand0);
+			}
+			if (operand1 != NULL) {
+				free(operand1);
+			}
+			error(errors5[5]);
+		}
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		if (operand1 != NULL) {
+			free(operand1);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runIntMatrixFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	Result* operand1 = runOperand(function->operands + 1);
+	Result* operand2 = runOperand(function->operands + 2);
+	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
+			    if(findVariable(operand0->str) == NULL){
+					Variable_* variable = (Variable_*)malloc(sizeof(Variable_));
+					if (variable == NULL) {
+						matrix_free(emptyResult->matrix);
+						error(errors5[7]);
+					}
+					else {
+						variable->name = operand0->str;
+						variable->type = VarType_IntMatrix;
+						variable->matrix = matrix_init((*(Result*)operand1).value, (*(Result*)operand2).value, VarType_Int);
+						if (variable->matrix == NULL) {
+							free(variable);
+							error(errors5[7]);
+						}
+						addVariable(variable);
+					}
+				}
+				else {
+					error(errors5[12]);
+				}
+			free(operand0);
+			free(operand1);
+			free(operand2);
+		}
+		else {
+			if (operand0 != NULL) {
+				free(operand0);
+			}
+			if (operand1 != NULL) {
+				free(operand1);
+			}
+			if (operand2 != NULL) {
+				free(operand2);
+			}
+			error(errors5[7]);
+		}
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		if (operand1 != NULL) {
+			free(operand1);
+		}
+		if (operand2 != NULL) {
+			free(operand2);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runFloatMatrixFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	Result* operand1 = runOperand(function->operands + 1);
+	Result* operand2 = runOperand(function->operands + 2);
+	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
+			if (findVariable(operand0->str) == NULL) {
+				Variable_* variable = (Variable_*)malloc(sizeof(Variable_));
+				if (variable == NULL) {
+					matrix_free(emptyResult->matrix);
+					error(errors5[7]);
+				}
+				else {
+					variable->name = operand0->str;
+					variable->type = VarType_FloatMatrix;
+					variable->matrix = matrix_init((*(Result*)operand1).value, (*(Result*)operand2).value, VarType_Float);
+					if (variable->matrix == NULL) {
+						free(variable);
+						error(errors5[7]);
+					}
+					addVariable(variable);
+				}
+			}
+			else {
+				error(errors5[12]);
+			}
+			free(operand0);
+			free(operand1);
+			free(operand2);
+		}
+		else {
+			if (operand0 != NULL) {
+				free(operand0);
+			}
+			if (operand1 != NULL) {
+				free(operand1);
+			}
+			if (operand2 != NULL) {
+				free(operand2);
+			}
+			error(errors5[7]);
+		}
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		if (operand1 != NULL) {
+			free(operand1);
+		}
+		if (operand2 != NULL) {
+			free(operand2);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runResizeMatrixFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	Result* operand1 = runOperand(function->operands + 1);
+	Result* operand2 = runOperand(function->operands + 2);
+	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
+			Variable_* variable = findVariable(operand0->str);
+			if (variable != NULL) {
+					variable->matrix = matrix_resize(variable->matrix, (*(Result*)operand1).value, (*(Result*)operand2).value);
+					if (variable->matrix == NULL) {
+						free(variable);
+						error(errors5[7]);
+					}
+			}
+			else {
+				error(errors5[8]);
+			}
+			free(operand0);
+			free(operand1);
+			free(operand2);
+		}
+		else {
+			if (operand0 != NULL) {
+				free(operand0);
+			}
+			if (operand1 != NULL) {
+				free(operand1);
+			}
+			if (operand2 != NULL) {
+				free(operand2);
+			}
+			error(errors5[7]);
+		}
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		if (operand1 != NULL) {
+			free(operand1);
+		}
+		if (operand2 != NULL) {
+			free(operand2);
+		}
+		error(errors5[3]);
+	}
+}
+
+Result* getUndefinedResult() {
+	Result* result = (Result*)malloc(sizeof(Result));
+	if (result == NULL) {
+		error2(errors5[0]);
+		return NULL;
+	}
+	result->type = ResultType_Undefined;
+	return result;
 }
 
 Result* runStr(Operand* operand) {
@@ -122,25 +578,40 @@ Result* runStr(Operand* operand) {
 }
 
 Result* runVariable(Operand* operand) {
+	char* name = (char*)((Operand*)operand)->data;
+	Variable_* variable = findVariable(name);
+	if (variable == NULL) {
+		error2(errors5[8]);
+		return NULL;
+	}
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
 		error2(errors5[0]);
 		return NULL;
 	}
-	char* name = (char*)((Operand*)operand)->data;
-	Variable_* variable = findVariable(name);
-	if (variable == NULL || (*(Variable_*)variable).type == VarType_Undefined) {
-		(*(Result*)result).value = 0;
-		(*(Result*)result).type = ResultType_Undefined;
-		return result;
-	}
-	else if ((*(Variable_*)variable).type == VarType_Float) {
+	if (variable->type == VarType_Int || variable->type == VarType_Float) {
 		(*(Result*)result).value = (*(Variable_*)variable).value;
 	}
-	else if ((*(Variable_*)variable).type == VarType_Int) {
-		(*(Result*)result).value = (int)(*(Variable_*)variable).value;
+	else if (variable->type == VarType_IntMatrix || variable->type == VarType_FloatMatrix) {
+		((Result*)result)->matrix = ((Variable_*)variable)->matrix;
 	}
-	(*(Result*)result).type = (enum ResultType)variable->type;
+	switch ((enum VarType)variable->type) {
+	case VarType_Float:
+		((Result*)result)->type = ResultType_Float;
+		break;
+	case VarType_FloatMatrix:
+		((Result*)result)->type = ResultType_FloatMatrix;
+		break;
+	case VarType_Int:
+		((Result*)result)->type = ResultType_Int;
+		break;
+	case VarType_IntMatrix:
+		((Result*)result)->type = ResultType_IntMatrix;
+		break;
+	case VarType_Str:
+		((Result*)result)->type = ResultType_Str;
+		break;
+	}
 	return result;
 }
 
@@ -150,35 +621,61 @@ Result* runNumber(Const* number) {
 		error2(errors5[0]);
 		return NULL;
 	}
-	if ((*(Const*)number).type == VarType_Float) {
+	switch ((*(Const*)number).type) {
+	case VarType_Float:
 		(*(Result*)result).type = ResultType_Float;
 		(*(Result*)result).value = *(double*)(*(Const*)number).data;
-	}
-	else if ((*(Const*)number).type == VarType_Int) {
+		break;
+	case VarType_Int:
 		(*(Result*)result).type = ResultType_Int;
 		(*(Result*)result).value = *(double*)(*(Const*)number).data;
-	}
-	else {
-		(*(Result*)result).type = ResultType_Undefined;
-		(*(Result*)result).value = 0;
+		break;
+	default:
+		free(result);
+		return NULL;
 	}
 	return result;
 }
 
-Result* runLogicConst(Const* logicConst){
+Result* runLogicConst(Const* logicConst) {
+	if ((*(Const*)logicConst).type == VarType_Logic) {
+		Result* result = (Result*)malloc(sizeof(Result));
+		if (result == NULL) {
+			error2(errors5[0]);
+			return NULL;
+		}
+		(*(Result*)result).type = ResultType_Logic;
+		(*(Result*)result).value = *(short*)(*(Const*)logicConst).data;
+		return result;
+	}
+	else {
+		return NULL;
+	}
+}
+
+Result* runMatrixElement(MatrixElement* element) {
+	Variable_* variable = findVariable(element->matrixName);
+	if (variable == NULL || variable->matrix == NULL) {
+		error2(errors5[8]);
+		return NULL;
+	}
 	Result* result = (Result*)malloc(sizeof(Result));
 	if (result == NULL) {
 		error2(errors5[0]);
 		return NULL;
 	}
-	if ((*(Const*)logicConst).type == VarType_Logic) {
-		(*(Result*)result).type = ResultType_Logic;
-		(*(Result*)result).value = *(short*)(*(Const*)logicConst).data;
+	Result* row = runOperand(element->rowIndex);
+	Result* column = runOperand(element->columnIndex);
+	if (row == NULL || column == NULL || row->type != ResultType_Int || column->type != ResultType_Int || row->value < 0 || column->value < 0 || row->value >= (*variable->matrix).rowsCount || column->value >= (*variable->matrix).columnsCount) {
+		error2(errors5[7]);
+		return NULL;
 	}
-	else {
-		(*(Result*)result).type = ResultType_Undefined;
-		(*(Result*)result).value = 0;
-	}
+	(*result).value = variable->matrix->elements[(int)row->value][(int)row->value];
+	(*result).type = variable->matrix->elementsType;
+	if (row != NULL)
+		free(row);
+	if (column != NULL)
+		free(column);
 	return result;
 }
 
@@ -199,9 +696,15 @@ Result* runOperand(Operand* operand) {
 	case OperandType_Inverse:
 		return runInverse((Operand*)operand);
 	case OperandType_LogicConst:
-	    return runLogicConst((Const*)operand->data);
+		return runLogicConst((Const*)operand->data);
 	case OperandType_Logic:
-	    return runLogic((Logic*)operand->data);
+		return runLogic((Logic*)operand->data);
+	case OperandType_MatrixElement:
+		return runMatrixElement((MatrixElement*)operand->data);
+	case OperandType_MatrixInitializator:
+		return runMatrixInitializator((MatrixInitializator*)operand->data);
+	default:
+		return NULL;
 	}
 }
 
@@ -214,15 +717,26 @@ Result* runUnar(Operand* operand) {
 		else if ((*(Result*)result).type == ResultType_Int) {
 			(*(Result*)result).value = -(int)(*(Result*)result).value;
 		}
+		else {
+			free(result);
+			return NULL;
+		}
 	}
 	return result;
 }
 
-Result* runInverse(Operand* operand){
+Result* runInverse(Operand* operand) {
 	Result* result = runOperand((Operand*)operand->data);
 	if (result != NULL) {
-		if ((*(Result*)result).type == ResultType_Logic || (*(Result*)result).type == ResultType_Int || (*(Result*)result).type == ResultType_Float) {
-			(*(Result*)result).value = 1-(int)(*(Result*)result).value;
+		switch ((*(Result*)result).type) {
+		case ResultType_Logic:
+		case ResultType_Int:
+		case ResultType_Float:
+			(*(Result*)result).value = 1 - (int)(*(Result*)result).value;
+			break;
+		default:
+			free(result);
+			return NULL;
 		}
 	}
 	return result;
@@ -240,340 +754,93 @@ Result* runFunction(Function* function) {
 		error2(errors5[0]);
 		return NULL;
 	}
-	result->type = ResultType_Undefined;
+	result->type = ResultType_Spec;
 	result->value = 0.0;
 	if ((*(Function*)function).count == 0) {
 		if (!(strcmp((*(Function*)function).name, "help"))) {
-			printf("Список доступных команд:\n");
-			printf("help() - получить сведения о командах.\n");
-			printf("about() - получить сводку о программе.\n");
-			printf("lang() - узнать информацию о языке KolibriMath.\n");
-			result->type = ResultType_Spec;
+			runHelpFunc(result);
 		}
 		else if (!(strcmp((*(Function*)function).name, "about"))) {
-			printf("Версия программы: %s.\n", ver);
-			printf("Разработчик: Дождиков Игорь.\n");
-			printf("(C) 2021 год.\n");
-			printf("Хочется сказать отдельное спасибо команде Kolibri OS за помощь!\n");
-			printf("Рустем, спасибо за библиотеку cvector!\n");
-			result->type = ResultType_Spec;
+			runAboutFunc(result);
 		}
 		else if (!(strcmp((*(Function*)function).name, "lang"))) {
-			printf("=== Справка о языке KolibriMath ===\n");
-			printf("Язык KolibriMath является интерпретируемым языком с динамической типизацией.\n");
-			printf("Основное назначение языка на данный момент - проведение расчетов.\n");
-			printf("Язык прозволяет работать с переменными двух типов: int, float. Тип задается при присваивании автоматически.\n");
-			printf("При присваивании используется следующая структура: <переменная> = <выражение>.\n");
-			printf("Допускаются операции \'*=\', \'+=\', \'-=\', \'/=\'.\n");
-			printf("Имеются блоки if(<условие>){<тело>}, elif(<условие>){<тело>}, else{<тело>}, repeat(<условие>){<тело>}.\n");
-			printf("Логические операции: & (И), | (ИЛИ), ! (НЕ), ==, !=, <=, <, >=, >.\n");
-			printf("Удаление переменной: del <переменная>.\n");
-			printf("Доступны четыре базовые операции: *, /, +, -.\n");
-			printf("Возможно написание выражений через запятые в одну строку.\n");
-			printf("Доступны функции: int(<число>), float(<число>), sqrt(<число>), pow2(<число>),\n");
-			printf("pow(<число>, <число>), sin(<число>), cos(<число>), abs(<число>), \nfile(<путь к файлу>),\n");
-			printf("input(), input(<подсказка к вводу>), ceil(<число>), mod(<число>).\n");
-			result->type = ResultType_Spec;
+			runLangFunc(result);
 		}
 		else if (!(strcmp((*(Function*)function).name, "input"))) {
-			printf("<");
-			gets(stringInput);
-			if (stringInput == NULL) {
-				result->type = ResultType_Spec;
-				error(errors5[1]);
-				return result;
-			}
-			getNumberFromStr(result);
+			runInputFunc(result, function, InputType_WithoutText);
 		}
 		else {
-			result->type = ResultType_Spec;
 			error(errors5[2]);
-			return result;
 		}
 	}
 	else if ((*(Function*)function).count == 1) {
 		if (!(strcmp((*(Function*)function).name, "int"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				(*(Result*)result).value = (int)(*(Result*)operand).value;
-				result->type = VarType_Int;
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runConvertTypeFunc(result, function, VarType_Int);
 		}
 		else if (!(strcmp((*(Function*)function).name, "float"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				(*(Result*)result).value = (*(Result*)operand).value;
-				result->type = ResultType_Float;
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runConvertTypeFunc(result, function, VarType_Float);
 		}
 		else if (!(strcmp((*(Function*)function).name, "sqrt"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				if ((*(Result*)operand).value > 0) {
-					(*(Result*)result).value = sqrt((*(Result*)operand).value);
-					free(operand);
-				}
-				else {
-					if (operand != NULL) {
-						free(operand);
-					}
-					result->type = ResultType_Spec;
-					error(errors5[5]);
-					return result;
-				}
-				result->type = VarType_Float;
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runSqrtFunc(result, function);
 		}
 		else if (!(strcmp((*(Function*)function).name, "sin"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				(*(Result*)result).value = sin((*(Result*)operand).value);
-				result->type = ResultType_Float;
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runTrigonomertyFunc(result, function, TrigonomertyFunc_Sin);
 		}
 		else if (!(strcmp((*(Function*)function).name, "cos"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				(*(Result*)result).value = cos((*(Result*)operand).value);
-				result->type = ResultType_Float;
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runTrigonomertyFunc(result, function, TrigonomertyFunc_Cos);
 		}
 		else if (!(strcmp((*(Function*)function).name, "pow2"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-					if (operand->type == VarType_Float) {
-						(*(Result*)result).value = pow((*(Result*)operand).value, 2);
-						result->type = ResultType_Float;
-						free(operand);
-					}
-					else {
-						(*(Result*)result).value = (int)pow((*(Result*)operand).value, 2);
-						result->type = ResultType_Int;
-						free(operand);
-					}
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runPow2Func(result, function);
 		}
 		else if (!(strcmp((*(Function*)function).name, "abs"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type != VarType_Undefined && operand->type != VarType_Str) {
-				if (operand->type == VarType_Float) {
-					(*(Result*)result).value = abs((*(Result*)operand).value);
-					result->type = ResultType_Float;
-					free(operand);
-				}
-				else {
-					(*(Result*)result).value = (int)abs((*(Result*)operand).value);
-					result->type = ResultType_Int;
-					free(operand);
-				}
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runAbsFunc(result, function);
 		}
 		else if (!(strcmp((*(Function*)function).name, "file"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type == VarType_Str) {
-				runFromFile((char*)((Result*)operand)->str);
-				free(((Result*)operand)->str);
-				result->type = ResultType_Spec;
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runFileFunc(result, function);
 		}
 		else if (!(strcmp((*(Function*)function).name, "input"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL && operand->type == VarType_Str) {
-				printf("%s", operand->str);
-				gets(stringInput);
-				if (stringInput == NULL) {
-					free(operand);
-					result->type = ResultType_Spec;
-					error(errors5[1]);
-					return result;
-				}
-				getNumberFromStr(result);
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runInputFunc(result, function, InputType_WithText);
 		}
 		else if (!(strcmp((*(Function*)function).name, "ceil"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL) {
-				if (operand->type != VarType_Undefined && operand->type != VarType_Str) {
-					result->type = ResultType_Float;
-					(*(Result*)result).value = ceil((*(Result*)operand).value);
-				}
-				else {
-					if (operand != NULL) {
-						free(operand);
-					}
-					result->type = ResultType_Spec;
-					error(errors5[3]);
-					return result;
-				}
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runCeilFunc(result, function);
 		}
 		else if (!(strcmp((*(Function*)function).name, "mod"))) {
-			Result* operand = runOperand(function->operands);
-			if (operand != NULL) {
-				if (operand->type != VarType_Undefined && operand->type != VarType_Str) {
-					double result0 = 0;
-					result->type = ResultType_Float;
-					(*(Result*)result).value = modf((*(Result*)operand).value, &result0);
-				}
-				else {
-					if (operand != NULL) {
-						free(operand);
-					}
-					result->type = ResultType_Spec;
-					error(errors5[3]);
-					return result;
-				}
-				free(operand);
-			}
-			else {
-				if (operand != NULL) {
-					free(operand);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runModFunc(result, function);
 		}
 		else {
-			result->type = ResultType_Spec;
 			error(errors5[2]);
-			return result;
 		}
 	}
 	else if ((*(Function*)function).count == 2) {
 		if (!(strcmp((*(Function*)function).name, "pow"))) {
-			Result* operand0 = runOperand(function->operands);
-			Result* operand1 = runOperand(function->operands + 1);
-			if (operand0 != NULL && operand1 != NULL && operand0->type != VarType_Undefined && operand1->type != VarType_Undefined && operand0->type != VarType_Str && operand1->type != VarType_Str) {
-				if ((*(Result*)operand1).value != 0) {
-					(*(Result*)result).value = pow((*(Result*)operand0).value, (*(Result*)operand1).value);
-					result->type = ResultType_Float;
-					free(operand0);
-					free(operand1);
-				}
-				else {
-					if (operand0 != NULL) {
-						free(operand0);
-					}
-					if (operand1 != NULL) {
-						free(operand1);
-					}
-					result->type = ResultType_Spec;
-					error(errors5[5]);
-					return result;
-				}
-			}
-			else {
-				if (operand0 != NULL) {
-					free(operand0);
-				}
-				if (operand1 != NULL) {
-					free(operand1);
-				}
-				result->type = ResultType_Spec;
-				error(errors5[3]);
-				return result;
-			}
+			runPowFunc(result, function);
 		}
 		else {
-			result->type = ResultType_Spec;
 			error(errors5[2]);
-			return result;
+		}
+	}
+	else if ((*(Function*)function).count == 3) {
+		if (!(strcmp((*(Function*)function).name, "intMatrix"))) {
+			runIntMatrixFunc(result, function);
+		}
+		else if (!(strcmp((*(Function*)function).name, "floatMatrix"))) {
+			runFloatMatrixFunc(result, function);
+		}
+		else if (!(strcmp((*(Function*)function).name, "resizeMatrix"))) {
+			runResizeMatrixFunc(result, function);
+		}
+		else {
+			error(errors5[2]);
 		}
 	}
 	else {
-		result->type = ResultType_Spec;
 		error(errors5[2]);
-		return result;
 	}
 	return result;
+}
+
+int isMatrix(Result* result) {
+	return result->type == ResultType_IntMatrix || result->type == ResultType_FloatMatrix;
 }
 
 Result* runOperation(Result* one, Result* two, enum OpType type) {
@@ -590,12 +857,7 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 	short oneIsFloat = 0;
 	short twoIsFloat = 0;
 	short IsNullDivided = 0;
-	if (one->type == VarType_Undefined || two->type == VarType_Undefined) {
-		result->value = 0.0;
-		result->type = ResultType_Undefined;
-		return result;
-	}
-	else if (one->type == VarType_Float) {
+	if (one->type == ResultType_Float) {
 		oneDouble = (*(Result*)one).value;
 		oneIsFloat = 1;
 	}
@@ -603,7 +865,7 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		oneInt = (int)(*(Result*)one).value;
 		oneIsFloat = 0;
 	}
-	if (two->type == VarType_Float) {
+	if (two->type == ResultType_Float) {
 		twoDouble = (*(Result*)two).value;
 		twoIsFloat = 1;
 	}
@@ -612,6 +874,10 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		twoIsFloat = 0;
 	}
 	if (type == OpType_Div) {
+		if (one->matrix != NULL || two->matrix != NULL) {
+			error2(errors5[11]);
+			return NULL;
+		}
 		if (oneIsFloat && twoIsFloat) {
 			if (twoDouble != 0) {
 				res = oneDouble / twoDouble;
@@ -645,8 +911,9 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 			}
 		}
 		if (IsNullDivided) {
-			result->type = ResultType_Undefined;
-			(*(Result*)result).value = 0;
+			error2(errors5[9]);
+			free(result);
+			return NULL;
 		}
 		else {
 			(*(Result*)result).value = res;
@@ -655,7 +922,43 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		return result;
 	}
 	else if (type == OpType_Mul) {
-		if (oneIsFloat && twoIsFloat) {
+		if (isMatrix(one) && isMatrix(two)) {
+			((Result*)result)->matrix = matrix_multiplication_withMatrix(one->matrix, two->matrix);
+			if (((Result*)result)->matrix == NULL) {
+				error2(errors5[10]);
+				free(result);
+				return NULL;
+			}
+			else {
+				result->type = ResultType_FloatMatrix;
+			}
+			return result;
+		}
+		else if (isMatrix(one) && (two->type == ResultType_Float || two->type == ResultType_Int)) {
+			((Result*)result)->matrix = matrix_multiplication_withNumber(one->matrix, (*two).value);
+			if (((Result*)result)->matrix == NULL) {
+				error2(errors5[10]);
+				free(result);
+				return NULL;
+			}
+			else {
+				result->type = ResultType_FloatMatrix;
+			}
+			return result;
+		}
+		else if (isMatrix(two) && (one->type == ResultType_Float || one->type == ResultType_Int)) {
+			((Result*)result)->matrix = matrix_multiplication_withNumber(two->matrix, (*one).value);
+			if (((Result*)result)->matrix == NULL) {
+				error2(errors5[10]);
+				free(result);
+				return NULL;
+			}
+			else {
+				result->type = ResultType_FloatMatrix;
+			}
+			return result;
+		}
+		else if (oneIsFloat && twoIsFloat) {
 			res = oneDouble * twoDouble;
 		}
 		else if (!oneIsFloat && twoIsFloat) {
@@ -664,7 +967,7 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		else if (oneIsFloat && !twoIsFloat) {
 			res = oneDouble * twoInt;
 		}
-		else {
+		else{
 			res = oneInt * twoInt;
 		}
 		(*(Result*)result).value = res;
@@ -672,7 +975,26 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		return result;
 	}
 	else if (type == OpType_Sub) {
-		if (oneIsFloat && twoIsFloat) {
+	if (isMatrix(one) && isMatrix(two)) {
+	((Result*)result)->matrix = matrix_substraction(one->matrix, two->matrix);
+		if (((Result*)result)->matrix == NULL) {
+			error2(errors5[10]);
+			free(result);
+			return NULL;
+		}
+		else if ((((Result*)result)->matrix)->elementsType == VarType_Int) {
+			result->type = ResultType_IntMatrix;
+		}
+		else {
+			result->type = ResultType_FloatMatrix;
+		}
+		return result;
+	}
+	else if ((isMatrix(one) && !isMatrix(two)) || (!isMatrix(one) && isMatrix(two))) {
+		error2(errors5[11]);
+		return NULL;
+	}
+		else if (oneIsFloat && twoIsFloat) {
 			res = oneDouble - twoDouble;
 		}
 		else if (!oneIsFloat && twoIsFloat) {
@@ -695,7 +1017,26 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		return result;
 	}
 	else if (type == OpType_Add) {
-		if (oneIsFloat && twoIsFloat) {
+		if (isMatrix(one) && isMatrix(two)) {
+			((Result*)result)->matrix = matrix_addition(one->matrix, two->matrix);
+			if (((Result*)result)->matrix == NULL) {
+				error2(errors5[10]);
+				free(result);
+				return NULL;
+			}
+			else if ((((Result*)result)->matrix)->elementsType == VarType_Int) {
+				result->type = ResultType_IntMatrix;
+			}
+			else {
+				result->type = ResultType_FloatMatrix;
+			}
+			return result;
+		}
+		else if ((isMatrix(one) && !isMatrix(two)) || (!isMatrix(one) && isMatrix(two))) {
+			error2(errors5[11]);
+			return NULL;
+		}
+		else if (oneIsFloat && twoIsFloat) {
 			res = oneDouble + twoDouble;
 		}
 		else if (!oneIsFloat && twoIsFloat) {
@@ -725,17 +1066,29 @@ Result* runLogicOperation(Result* one, Result* two, enum LOpType type) {
 		error2(errors5[0]);
 		return NULL;
 	}
-	if (one->type == VarType_Undefined || two->type == VarType_Undefined) {
-		result->value = 0.0;
-		result->type = VarType_Undefined;
+	if ((one->type == ResultType_IntMatrix || one->type == ResultType_FloatMatrix) && (two->type == ResultType_IntMatrix || two->type == ResultType_FloatMatrix)) {
+		if (type == LOpType_Equals) {
+			(*(Result*)result).value = matrix_equals(one->matrix, two->matrix);
+			(*(Result*)result).type = ResultType_Logic;
+		}
+		else if (type == LOpType_NotEquals) {
+			(*(Result*)result).value = 1 - (int)matrix_equals(one->matrix, two->matrix);
+			(*(Result*)result).type = ResultType_Logic;
+		}
+		else {
+			error(errors5[11]);
+			free(result);
+			return NULL;
+		}
 		return result;
 	}
-	double oneDouble = (*(Result*)one).value;
-	double twoDouble = (*(Result*)two).value;
-	(*(Result*)result).type = ResultType_Logic;
-	switch(type){
+	else {
+		double oneDouble = (*(Result*)one).value;
+		double twoDouble = (*(Result*)two).value;
+		(*(Result*)result).type = ResultType_Logic;
+		switch (type) {
 		case LOpType_And:
-		    (*(Result*)result).value = (double)(oneDouble == twoDouble == 1.0);
+			(*(Result*)result).value = (double)(oneDouble == twoDouble == 1.0);
 			break;
 		case LOpType_Or:
 			(*(Result*)result).value = (double)(oneDouble == 1.0 || twoDouble == 1.0);
@@ -743,24 +1096,25 @@ Result* runLogicOperation(Result* one, Result* two, enum LOpType type) {
 		case LOpType_Equals:
 			(*(Result*)result).value = (double)(oneDouble == twoDouble);
 			break;
-        case LOpType_NotEquals:
+		case LOpType_NotEquals:
 			(*(Result*)result).value = (double)(oneDouble != twoDouble);
 			break;
-        case LOpType_More:
+		case LOpType_More:
 			(*(Result*)result).value = (double)(oneDouble > twoDouble);
 			break;
-        case LOpType_EqualsOrMore:
+		case LOpType_EqualsOrMore:
 			(*(Result*)result).value = (double)(oneDouble >= twoDouble);
 			break;
-        case LOpType_Less:
+		case LOpType_Less:
 			(*(Result*)result).value = (double)(oneDouble < twoDouble);
 			break;
-        case LOpType_EqualsOrLess:
+		case LOpType_EqualsOrLess:
 			(*(Result*)result).value = (double)(oneDouble <= twoDouble);
-			break;			
+			break;
+		}
 	}
-		return result;
-	}
+	return result;
+}
 
 Result* runArithmetic(Arithmetic* arithmetic) {
 	Result* result = (Result*)malloc(sizeof(Result));
@@ -791,14 +1145,12 @@ Result* runArithmetic(Arithmetic* arithmetic) {
 	cvector_init(operations);
 	for (int j = 0; j < (*(Arithmetic*)arithmetic).operandsCount; j++) {
 		cvector_push_back(operands, runOperand((Operand*)arithmetic->operands + j));
-		if ((*(Result*)cvector_get(operands, j)).type == ResultType_Undefined) {
-			result->type = ResultType_Undefined;
-			(*(Result*)result).value = 0;
+		if ((Result*)cvector_get(operands, j) == NULL || ((Result*)cvector_get(operands, j))->type == ResultType_Spec || ((Result*)cvector_get(operands, j))->type == ResultType_Str) {
 			cvector_free(operands);
 			free(operands);
 			cvector_free(operations);
 			free(operations);
-			return result;
+			return NULL;
 		}
 	}
 	for (int j = 0; j < (*(Arithmetic*)arithmetic).operationsCount; j++) {
@@ -815,12 +1167,28 @@ Result* runArithmetic(Arithmetic* arithmetic) {
 		i = 0;
 		while (i < cvector_size(expression) - 2) {
 			if ((*(enum OpType*)cvector_get(expression, i + 1)) == OpType_Mul) {
-				cvector_set(expression, i, runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Mul));
+				Result* result = runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Mul);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
 			else if ((*(enum OpType*)cvector_get(expression, i + 1)) == OpType_Div) {
-				cvector_set(expression, i, runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Div));
+				Result* result = runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Div);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
@@ -831,12 +1199,28 @@ Result* runArithmetic(Arithmetic* arithmetic) {
 		i = 0;
 		while (i < cvector_size(expression) - 2) {
 			if ((*(enum OpType*)cvector_get(expression, i + 1)) == OpType_Sub) {
-				cvector_set(expression, i, runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Sub));
+				Result* result = runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Sub);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
 			else if ((*(enum OpType*)cvector_get(expression, i + 1)) == OpType_Add) {
-				cvector_set(expression, i, runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Add));
+				Result* result = runOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), OpType_Add);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
@@ -889,14 +1273,12 @@ Result* runLogic(Logic* logic) {
 	cvector_init(operations);
 	for (int j = 0; j < (*(Logic*)logic).operandsCount; j++) {
 		cvector_push_back(operands, runOperand((Operand*)logic->operands + j));
-		if ((*(Result*)cvector_get(operands, j)).type == ResultType_Undefined) {
-			result->type = ResultType_Undefined;
-			(*(Result*)result).value = 0;
+		if ((Result*)cvector_get(operands, j) == NULL || ((Result*)cvector_get(operands, j))->type == ResultType_Spec || ((Result*)cvector_get(operands, j))->type == ResultType_Str) {
 			cvector_free(operands);
 			free(operands);
 			cvector_free(operations);
 			free(operations);
-			return result;
+			return NULL;
 		}
 	}
 	for (int j = 0; j < (*(Logic*)logic).operationsCount; j++) {
@@ -913,36 +1295,106 @@ Result* runLogic(Logic* logic) {
 		i = 0;
 		while (i < cvector_size(expression) - 2) {
 			if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_And) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_And));
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_And);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
 			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_Or) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Or));
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Or);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_Equals) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Equals));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_Equals) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Equals);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_NotEquals) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_NotEquals));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_NotEquals) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_NotEquals);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_More) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_More));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_More) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_More);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_EqualsOrMore) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_EqualsOrMore));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_EqualsOrMore) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_EqualsOrMore);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_Less) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Less));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_Less) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_Less);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
-			}else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_EqualsOrLess) {
-				cvector_set(expression, i, runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_EqualsOrLess));
+			}
+			else if ((*(enum LOpType*)cvector_get(expression, i + 1)) == LOpType_EqualsOrLess) {
+				Result* result = runLogicOperation((Result*)cvector_get(expression, i), (Result*)cvector_get(expression, 2 + i), LOpType_EqualsOrLess);
+				if (result == NULL) {
+					cvector_free(operands);
+					free(operands);
+					cvector_free(operations);
+					free(operations);
+					return result;
+				}
+				cvector_set(expression, i, result);
 				vector_delete(expression, i + 1);
 				vector_delete(expression, i + 1);
 			}
@@ -971,6 +1423,48 @@ Result* runLogic(Logic* logic) {
 	return result;
 }
 
+Result* runMatrixInitializator(MatrixInitializator* matrix_Init) {
+	Result* result = (Result*)malloc(sizeof(Result));
+	if (result == NULL) {
+		error2(errors5[0]);
+		return NULL;
+	}
+	Matrix* newMatrix = matrix_init_undefinedElementsType(matrix_Init->rowsCount, (matrix_Init->rows[0])->columnsCount);
+	Result* element;
+	short isFirstElement = 1;
+	for (int i = 0; i < matrix_Init->rowsCount; i++) {
+		for (int j = 0; j < (matrix_Init->rows[0])->columnsCount; j++) {
+			if ((matrix_Init->rows[i])->columnsCount < (matrix_Init->rows[0])->columnsCount) {
+				result->type = ResultType_Undefined;
+				matrix_free(newMatrix);
+				return result;
+			}
+			element = runOperand(matrix_Init->rows[i] + j);
+			if (element == NULL) {
+				result->type = ResultType_Undefined;
+				matrix_free(newMatrix);
+				return result;
+			}
+			if (isFirstElement) {
+				if (element->type == ResultType_Int)
+				{
+					newMatrix->elementsType = VarType_Int;
+					result->type = ResultType_IntMatrix;
+				}
+				else if (element->type == ResultType_Float)
+				{
+					newMatrix->elementsType = VarType_Float;
+					result->type = ResultType_FloatMatrix;
+				}
+				isFirstElement = 0;
+			}
+			matrix_setElement(newMatrix, i, j, element->value);
+		}
+	}
+	result->matrix = newMatrix;
+	return result;
+}
+
 void runSetting(Part* part) {
 	Variable_* variable = findVariable((char*)(*(Operand*)((Setting*)part->data)->variable).data);
 	if (variable == NULL) {
@@ -979,20 +1473,92 @@ void runSetting(Part* part) {
 			error2(errors5[0]);
 			return;
 		}
-		variable->name = (char*)(*(Operand*)((Setting*)part->data)->variable).data;
+		if ((*(Operand*)((Setting*)part->data)->variable).type == OperandType_MatrixElement) {
+			variable->name = (char*)((MatrixElement*)((Operand*)((Setting*)part->data)->variable)->data)->matrixName;
+		}
+		else {
+			variable->name = (char*)(*(Operand*)((Setting*)part->data)->variable).data;
+		}
 	}
 	Result* result = runOperand((Operand*)((Setting*)part->data)->source);
 	if (result != NULL) {
-		(*(Variable_*)variable).value = (*(Result*)result).value;
-		if ((*(Result*)result).type == ResultType_Float) {
-			variable->type = VarType_Float;
-		}
-		else if ((*(Result*)result).type == VarType_Int) {
-			variable->type = VarType_Int;
-		}
-		else {
-			variable->type = VarType_Undefined;
-			(*(Variable_*)variable).value = 0;
+		switch ((*(Result*)result).type) {
+		case ResultType_Float:
+			if ((*(Operand*)((Setting*)part->data)->variable).type == OperandType_MatrixElement) {
+				Variable_* var = findVariable(variable->name);
+				if (var == NULL) {
+					error2(errors5[8]);
+					return;
+				}
+				else if (var != NULL && (*var).type != VarType_FloatMatrix) {
+					error2(errors5[6]);
+					return;
+				}
+				else if (var != NULL && (*var).type == VarType_FloatMatrix) {
+					Result* row = runOperand(((MatrixElement*)((Operand*)((Setting*)part->data)->variable)->data)->rowIndex);
+					Result* column = runOperand(((MatrixElement*)((Operand*)((Setting*)part->data)->variable)->data)->columnIndex);
+					if (row != NULL && row->type == ResultType_Int && row->value >= 0 && column != NULL && column->type == ResultType_Int && column->value >= 0 && row->value < var->matrix->rowsCount && column->value < var->matrix->columnsCount) {
+						((Variable_*)var)->matrix = matrix_setElement(((Variable_*)var)->matrix, (int)row->value, (int)column->value, (*(Result*)result).value);
+					}
+					else {
+						error2(errors5[7]);
+						return;
+					}
+					if (row != NULL)
+						free(row);
+					if (column != NULL)
+						free(column);
+					return;
+				}
+			}
+			else {
+				variable->type = VarType_Float;
+				(*(Variable_*)variable).value = (*(Result*)result).value;
+			}
+			break;
+		case ResultType_Int:
+			if ((*(Operand*)((Setting*)part->data)->variable).type == OperandType_MatrixElement) {
+				Variable_* var = findVariable(variable->name);
+				if (var == NULL) {
+					error2(errors5[8]);
+					return;
+				}
+				else if (var != NULL && (*var).type != VarType_IntMatrix) {
+					error2(errors5[6]);
+					return;
+				}
+				else if (var != NULL && (*var).type == VarType_IntMatrix) {
+					Result* row = runOperand(((MatrixElement*)((Operand*)((Setting*)part->data)->variable)->data)->rowIndex);
+					Result* column = runOperand(((MatrixElement*)((Operand*)((Setting*)part->data)->variable)->data)->columnIndex);
+					if (row != NULL && row->type == ResultType_Int && row->value >= 0 && column != NULL && column->type == ResultType_Int && column->value >= 0 && row->value < var->matrix->rowsCount && column->value < var->matrix->columnsCount) {
+						((Variable_*)var)->matrix = matrix_setElement(((Variable_*)var)->matrix, (int)row->value, (int)column->value, (*(Result*)result).value);
+					}
+					else {
+						error2(errors5[7]);
+						return;
+					}
+					if (row != NULL)
+						free(row);
+					if (column != NULL)
+						free(column);
+					return;
+				}
+			}
+			else {
+				variable->type = VarType_Int;
+				(*(Variable_*)variable).value = (*(Result*)result).value;
+			}
+			break;
+		case ResultType_IntMatrix:
+			variable->type = VarType_IntMatrix;
+			variable->matrix = matrix_copy(((Result*)result)->matrix);
+			break;
+		case ResultType_FloatMatrix:
+			variable->type = VarType_FloatMatrix;
+			variable->matrix = matrix_copy(((Result*)result)->matrix);
+			break;
+		default:
+			return;
 		}
 		addVariable(variable);
 	}
@@ -1000,17 +1566,13 @@ void runSetting(Part* part) {
 
 void runDel(Part* part) {
 	Variable_* variable = findVariable((*(Operand*)part->data).data);
-	/*if (variable == NULL) {
-		error2("Переменная с таким именем не найдена.");
-		return;
-	}*/
 	deleteVariable(variable);
 }
 
-short runIfElif(Part* part){
+short runIfElif(Part* part) {
 	Logic_Construction* logic_construction = part->data;
 	Result* result = runLogic(logic_construction->condition);
-	if((*(Result*)result).type == ResultType_Logic && (*(Result*)result).value == 1.0){
+	if ((*(Result*)result).type == ResultType_Logic && (*(Result*)result).value == 1.0) {
 		run(logic_construction->expression);
 	}
 	return (short)(*(Result*)result).value;
@@ -1021,10 +1583,10 @@ void runElse(Part* part) {
 	run(logic_construction->expression);
 }
 
-void runRepeat(Part* part){
+void runRepeat(Part* part) {
 	Logic_Construction* logic_construction = part->data;
 	Result* result = runLogic(logic_construction->condition);
-	while((*(Result*)result).type == ResultType_Logic && (*(Result*)result).value == 1.0) {
+	while ((*(Result*)result).type == ResultType_Logic && (*(Result*)result).value == 1.0) {
 		for (int i = 0; i < ((Expression*)logic_construction->expression)->count; i++) {
 			runPart(((Expression*)logic_construction->expression)->parts + i);
 		}
@@ -1041,6 +1603,43 @@ void runPrintStr(Part* part) {
 	printf("%s", part->data);
 }
 
+int runMatrixIf(Part* part) {
+	if (part->type == PartType_Arithmetic) {
+		Arithmetic* arithmetic = ((Operand*)part->data)->data;
+		if (arithmetic->operandsCount == 1) {
+			Operand operand = arithmetic->operands[0];
+			if (operand.type == OperandType_Variable) {
+				Variable_* var = findVariable(operand.data);
+				if (var != NULL && var->matrix != NULL) {
+					Result* result = malloc(sizeof(Result));
+					if (result == NULL) {
+						error2(errors5[0]);
+						return 0;
+					}
+					if (var->type == VarType_FloatMatrix || var->type == VarType_IntMatrix) {
+						result->matrix = var->matrix;
+						if (result->matrix->elementsType == VarType_Float) {
+							result->type = ResultType_FloatMatrix;
+						}
+						else {
+							result->type = ResultType_IntMatrix;
+						}
+					}
+					else {
+						return 0;
+					}
+					printResult(result);
+					return 1;
+				}
+				return 0;
+			}
+			return 0;
+		}
+		return 0;
+	}
+	return 0;
+}
+
 void runPart(Part* part) {
 	Result* result;
 	switch (part->type) {
@@ -1052,10 +1651,12 @@ void runPart(Part* part) {
 		break;
 	case PartType_Arithmetic:
 	case PartType_Logic:
+		if (runMatrixIf(part)) {
+			break;
+		}
 		result = runOperand((Operand*)part->data);
 		if (result != NULL) {
-			print2(result);
-			free(result);
+			printResult(result);
 		}
 		break;
 	case PartType_NewLine:
@@ -1065,7 +1666,7 @@ void runPart(Part* part) {
 		runPrintStr(part);
 		break;
 	case PartType_Logic_Construction:
-	    if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_If){
+		if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_If) {
 			value = runIfElif(part);
 		}
 		else if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Elif && !value) {
@@ -1074,7 +1675,7 @@ void runPart(Part* part) {
 		else if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Else && !value) {
 			runElse(part);
 		}
-		else if((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Repeat){
+		else if ((*(Logic_Construction*)part->data).logicPartType == LogicPartType_Repeat) {
 			runRepeat(part);
 		}
 		break;

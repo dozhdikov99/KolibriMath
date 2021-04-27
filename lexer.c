@@ -4,8 +4,8 @@
 * (C) 2021 year.
 */
 #include "lexer.h"
-#include <ctype.h>
-#include "cvector.h"
+#include "out.h"
+#include "globals.h"
 
 int pos = 0;
 int line_pos = 0;
@@ -41,7 +41,7 @@ void NextCh() {
 }
 
 short IsSep() {
-	return current() == ',' || current() == '\0' || current() == '(' || current() == ')' || current() == '=' || current() == '+' || current() == '-' || current() == '*' || current() == '/' || current() == ' ' || current() == '#' || current() == '\n' || current() == '\r' || current() == ';' || current() != '{' || current() != '}' || current() != '&' || current() != '|' || current() != '!' || current() != '<' || current() != '>';
+	return current() == ',' || current() == '\0' || current() == '(' || current() == ')' || current() == '=' || current() == '+' || current() == '-' || current() == '*' || current() == '/' || current() == ' ' || current() == '#' || current() == '\n' || current() == '\r' || current() == ';' || current() != '{' || current() != '}' || current() != '&' || current() != '|' || current() != '!' || current() != '<' || current() != '>' || current() != '[' || current() != ']';
 }
 
 Token* GetName() {
@@ -54,7 +54,7 @@ Token* GetName() {
 	token->coord = line_pos;
 	token->line = (*environment).line;
 	int i = 0;
-	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';' && current() != '{' && current() != '}' && current() != '&' && current() != '|' && current() != '!' && current() != '<' && current() != '>') {
+	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';' && current() != '{' && current() != '}' && current() != '&' && current() != '|' && current() != '!' && current() != '<' && current() != '>' && current() != '[' && current() != ']') {
 		if (isalpha(current())) {
 			str[i] = current();
 			i++;
@@ -166,7 +166,7 @@ Token* GetNumber() {
 	token->line = (*environment).line;
 	int count = 0;
 	int i = 0;
-	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';' && current() != '{' && current() != '}' && current() != '&' && current() != '|' && current() != '!' && current() != '<' && current() != '>') {
+	while (current() != ',' && current() != '\0' && current() != '(' && current() != ')' && current() != '=' && current() != '+' && current() != '-' && current() != '*' && current() != '/' && current() != ' ' && current() != '#' && current() != '\n' && current() != '\r' && current() != ';' && current() != '{' && current() != '}' && current() != '&' && current() != '|' && current() != '!' && current() != '<' && current() != '>' && current() != ']') {
 		if (isalpha(current())) {
 			error(errors2[3]);
 			free(token);
@@ -666,47 +666,6 @@ Array* tokenize(char* string) {
 				cvector_push_back(lexems, token);
 				NextCh();
 			}
-			else if (current() == '<') {
-				token = (Token*)malloc(sizeof(Token));
-				if (token == NULL) {
-					error2(errors2[2]);
-					result = -1;
-					break;
-				}
-				NextCh();
-				if (current() == '=') {
-					token->data = malloc(sizeof(char) * 2);
-					if (token->data == NULL) {
-						error2(errors2[2]);
-						free(token);
-						result = -1;
-						break;
-					}
-					token->data = "<=\0";
-					token->type = TokenType_EqualsOrLess;
-					token->coord = line_pos - 1;
-					token->line = (*environment).line;
-					last = TokenType_EqualsOrLess;
-				}
-				else {
-					token->data = malloc(sizeof(char));
-					if (token->data == NULL) {
-						error2(errors2[2]);
-						free(token);
-						result = -1;
-						break;
-					}
-					token->data = "<\0";
-					token->type = TokenType_Less;
-					token->coord = line_pos;
-					token->line = (*environment).line;
-					last = TokenType_Less;
-					cvector_push_back(lexems, token);
-					continue;
-				}
-				cvector_push_back(lexems, token);
-				NextCh();
-			}
 			else if (current() == '>') {
 				token = (Token*)malloc(sizeof(Token));
 				if (token == NULL) {
@@ -791,6 +750,50 @@ Array* tokenize(char* string) {
 				last = TokenType_RightFigureBracket;
 				cvector_push_back(lexems, token);
 				NextCh();
+				}
+			else if (current() == '[') {
+			token = (Token*)malloc(sizeof(Token));
+			if (token == NULL) {
+				error2(errors2[2]);
+				result = -1;
+				break;
+			}
+			token->data = malloc(sizeof(char));
+			if (token->data == NULL) {
+				error2(errors2[2]);
+				free(token);
+				result = -1;
+				break;
+			}
+			token->data = "[\0";
+			token->type = TokenType_LeftSquareBracket;
+			token->coord = line_pos;
+			token->line = (*environment).line;
+			last = TokenType_LeftSquareBracket;
+			cvector_push_back(lexems, token);
+			NextCh();
+				}
+			else if (current() == ']') {
+			token = (Token*)malloc(sizeof(Token));
+			if (token == NULL) {
+				error2(errors2[2]);
+				result = -1;
+				break;
+			}
+			token->data = malloc(sizeof(char));
+			if (token->data == NULL) {
+				error2(errors2[2]);
+				free(token);
+				result = -1;
+				break;
+			}
+			token->data = "]\0";
+			token->type = TokenType_RightSquareBracket;
+			token->coord = line_pos;
+			token->line = (*environment).line;
+			last = TokenType_RightSquareBracket;
+			cvector_push_back(lexems, token);
+			NextCh();
 				}
 			else if (current() == '\'') {
 				NextCh();

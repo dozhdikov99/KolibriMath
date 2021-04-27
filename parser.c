@@ -14,7 +14,7 @@ const char* errors3[] = {
 	"при парсинге произошла ошибка [код: 3.0].",
 	"неожиданный конец выражения [код: 3.1].",
 	"ожидалась операция удаления [код: 3.2].",
-	"ожидалось название переменной [код: 3.3].",
+	"ожидались название переменной или элемент матрицы [код: 3.3].",
 	"ожидался символ \',\' или конец выражения [код: 3.4].",
 	"ожидался символ \'=\' [код: 3.5].",
 	"ошибка при получении числа [код: 3.6].",
@@ -22,7 +22,8 @@ const char* errors3[] = {
 	"неожиданный символ [код: 3.8].",
 	"ожидалось число [код: 3.9].",
 	"ошибка выделения памяти [код: 3.10].",
-	"строка не может быть частью арифметического выражения [код: 3.11]."
+	"строка не может быть частью арифметического выражения [код: 3.11].",
+	"индекс элемента массив должен быть целым числом [код: 3.12]."
 };
 
 void freeExpression(Expression* expression);
@@ -46,18 +47,25 @@ void freeNumber(Const* number) {
 }
 
 void freeFunction(Function* function) {
-	//for (int i = 0; i < function->count; i++) {
-	//	if (function->operands + i)
-			freeOperand(function->operands);
-	//}
+	freeOperand(function->operands);
 	if (function)
 		free(function);
+}
+
+void freeMatrixRow(MatrixRow* row) {
+	free(row);
+}
+
+void freeMatrixInitializator(MatrixInitializator* m) {
+	for (int i = 0; i < m->rowsCount; i++) {
+		freeMatrixRow(m->rows[i]);
+	}
+	free(m);
 }
 
 void freeOperand(Operand* operand) {
 	switch (operand->type) {
 	case OperandType_Str:
-		free(operand->data);
 		break;
 	case OperandType_Logic:
 		freeLogic(operand->data);
@@ -72,43 +80,26 @@ void freeOperand(Operand* operand) {
 		freeOperand(operand->data);
 		break;
 	case OperandType_LogicConst:
-	//	freeNumber(operand->data);
-		break;
 	case OperandType_Number:
-		//freeNumber(operand->data);
 		break;
 	case OperandType_Unar:
 		freeOperand(operand->data);
 		break;
-	//case OperandType_Variable:
-	//	free(operand->data);
-	//	break;
+	case OperandType_MatrixInitializator:
+		freeMatrixInitializator(operand->data);
+		break;
 	}
 	free(operand);
 }
 
 void freeArithmetic(Arithmetic* arithmetic) {
-	//for (int i = 0; i < arithmetic->operandsCount; i++) {
-	//	if (arithmetic->operands + i)
-			freeOperand(arithmetic->operands);
-	//}
-	//for (int i = 0; i < arithmetic->operationsCount; i++) {
-	//	if (arithmetic->operations + i)
-//			free(arithmetic->operations);
-	//}
+	freeOperand(arithmetic->operands);
 	if (arithmetic)
 		free(arithmetic);
 }
 
 void freeLogic(Logic* logic) {
-	//for (int i = 0; i < logic->operandsCount; i++) {
-	//	if (logic->operands + i)
-			freeOperand(logic->operands);
-	//}
-	//for (int i = 0; i < logic->operationsCount; i++) {
-	//	if (logic->operations + i)
-	//		free(logic->operations);
-	//}
+	freeOperand(logic->operands);
 	if (logic)
 		free(logic);
 }
@@ -159,40 +150,40 @@ void freePart(Part* part) {
 			free(part->data);
 		break;
 	}
-	//if (part)
-	//	free(part);
 }
 
 void freeExpression(Expression* expression) {
 	for (int i = 0; i < expression->count; i++) {
-		freePart(expression->parts+i);
+		freePart(expression->parts + i);
 	}
 	free(expression);
 }
 
-enum TokenType GetType(Array* array, int* index){
+enum TokenType GetType(Array* array, int* index) {
 	return (*(Token*)(((Token*)array->data) + *index)).type;
 }
 
-void AddIndex(int* index, Array* array, int value){
+void AddIndex(int* index, Array* array, int value) {
 	(*index) += value;
 	while ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_NewLine) {
 		(*index) += value;
 	}
 	if ((*environment).isFile == 1) {
-		if((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Str){
-			forStr = malloc((strlen(((Token*)(((Token*)array->data) + *index))->data)+2)*sizeof(char));
-			if(forStr == NULL){
+		if ((*(Token*)(((Token*)array->data) + *index)).type == TokenType_Str) {
+			forStr = malloc((strlen(((Token*)(((Token*)array->data) + *index))->data) + 2) * sizeof(char));
+			if (forStr == NULL) {
 				error2(errors3[10]);
-			}else{
-				forStr[0] = '\'';
-				for(int i = 0; i < strlen(((Token*)(((Token*)array->data) + *index))->data); i++){
-					forStr[i+1] = *(((Token*)(((Token*)array->data) + *index))->data+i);
-				}
-				forStr[strlen(((Token*)(((Token*)array->data) + *index))->data)-2] = '\'';
 			}
-		}else{
-		    environment->str = ((Token*)(((Token*)array->data) + *index))->data;
+			else {
+				forStr[0] = '\'';
+				for (int i = 0; i < strlen(((Token*)(((Token*)array->data) + *index))->data); i++) {
+					forStr[i + 1] = *(((Token*)(((Token*)array->data) + *index))->data + i);
+				}
+				forStr[strlen(((Token*)(((Token*)array->data) + *index))->data) - 2] = '\'';
+			}
+		}
+		else {
+			environment->str = ((Token*)(((Token*)array->data) + *index))->data;
 		}
 	}
 	environment->pos = ((Token*)(((Token*)array->data) + *index))->coord;
@@ -216,11 +207,12 @@ enum OpType* GetOperation(Token* token) {
 	}
 	else if ((*token).type == TokenType_OpAdd) {
 		*operation = OpType_Add;
-	}else{
+	}
+	else {
 		free(operation);
 		return NULL;
 	}
-	if((*environment).isFile == 1){
+	if ((*environment).isFile == 1) {
 		environment->str = token->data;
 	}
 	environment->pos = token->coord;
@@ -343,6 +335,70 @@ Const* GetLogicConst(Array* array, int* index) {
 		return NULL;
 	}
 	return logicConst;
+}
+
+Operand* GetMatrixElement(Array* array, int* index) {
+	Operand* operand = (Operand*)malloc(sizeof(Operand));
+	if (operand == NULL) {
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	int new_index = *index + 1;
+	if (GetType(array, index) != TokenType_Name && GetType(array, &new_index) != TokenType_LeftSquareBracket) {
+		ERROR_CODE = 8;
+		free(operand);
+		return NULL;
+	}
+	char* matrixName = ((Token*)(((Token*)array->data) + *index))->data;
+	AddIndex(index, array, 1);
+	if (GetType(array, index) == TokenType_End) {
+		ERROR_CODE = 8;
+		free(operand);
+		return NULL;
+	}
+	AddIndex(index, array, 1);
+	Operand* row = GetArithmetic(array, index);
+	if (row == NULL) {
+		free(operand);
+		ERROR_CODE = 8;
+		return NULL;
+	}
+	if (GetType(array, index) != TokenType_Sep) {
+		free(operand);
+		free(row);
+		ERROR_CODE = 8;
+		return NULL;
+	}
+	AddIndex(index, array, 1);
+	Operand* column = GetArithmetic(array, index);
+	if (column == NULL) {
+		free(operand);
+		free(row);
+		ERROR_CODE = 8;
+		return NULL;
+	}
+	if (GetType(array, index) != TokenType_RightSquareBracket) {
+		free(operand);
+		free(column);
+		free(row);
+		ERROR_CODE = 8;
+		return NULL;
+	}
+	MatrixElement* m_e = (MatrixElement*)malloc(sizeof(MatrixElement));
+	if (m_e == NULL) {
+		free(operand);
+		free(column);
+		free(row);
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	m_e->matrixName = matrixName;
+	m_e->rowIndex = row;
+	m_e->columnIndex = column;
+	operand->type = OperandType_MatrixElement;
+	operand->data = m_e;
+	AddIndex(index, array, 1);
+	return operand;
 }
 
 Operand* GetVariable(Array* array, int* index) {
@@ -553,14 +609,21 @@ Operand* GetOperand(Array* array, int* index) {
 		return operand;
 	}
 	else if (GetType(array, index) == TokenType_Name) {
-		operand = GetFunction(array, index);
+		int lastIndex = *index;
+		operand = GetMatrixElement(array, index);
 		if (operand == NULL) {
-			operand = GetVariable(array, index);
-			AddIndex(index, array, 1);
+			AddIndex(index, array, -(*index - lastIndex));
+			operand = GetFunction(array, index);
 			if (operand == NULL) {
-				return NULL;
+				AddIndex(index, array, -(*index - lastIndex));
+				operand = GetVariable(array, index);
+				if (operand == NULL) {
+					return NULL;
+				}
+				AddIndex(index, array, 1);
 			}
 		}
+
 		return operand;
 	}
 	else if (GetType(array, index) == TokenType_Int || GetType(array, index) == TokenType_Float) {
@@ -589,7 +652,7 @@ Operand* GetOperand(Array* array, int* index) {
 			return NULL;
 		}
 		else if (operand == NULL) {
-			AddIndex(index, array, -(*index-lastIndex));
+			AddIndex(index, array, -(*index - lastIndex));
 			operand = GetLogic(array, index);
 			if (operand == NULL && GetType(array, index) != TokenType_RightBracket) {
 				return NULL;
@@ -690,7 +753,7 @@ Operand* GetArithmetic(Array* array, int* index) {
 				free(arithmetic);
 				return NULL;
 			}
-		
+
 		}
 		if (GetType(array, index) == TokenType_And || GetType(array, index) == TokenType_Or || GetType(array, index) == TokenType_Equals || GetType(array, index) == TokenType_NotEquals || GetType(array, index) == TokenType_More || GetType(array, index) == TokenType_EqualsOrMore || GetType(array, index) == TokenType_Less || GetType(array, index) == TokenType_EqualsOrLess || GetType(array, index) == TokenType_Inverse) {
 			if (cvector_size(operands) != 0) {
@@ -962,6 +1025,186 @@ Operand* GetLogic(Array* array, int* index) {
 	}
 }
 
+MatrixRow* GetMatrixRow(Array* array, int* index) {
+	Operand* operand;
+	cvector* columns = (cvector*)malloc(sizeof(cvector));
+	if (columns == NULL) {
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	MatrixRow* row = (MatrixRow*)malloc(sizeof(MatrixRow));
+	if (row == NULL) {
+		free(columns);
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	cvector_init(columns);
+	int count = 0;
+	while (GetType(array, index) != TokenType_RightFigureBracket) {
+		if (GetType(array, index) == TokenType_End) {
+			free(row);
+			for (int i = 0; i < cvector_size(columns); i++) {
+				free(cvector_get(columns, i));
+			}
+			cvector_free(columns);
+			free(columns);
+			ERROR_CODE = 1;
+			return NULL;
+		}
+		else if (GetType(array, index) == TokenType_Sep) {
+			if (count != 0) {
+				free(row);
+				for (int i = 0; i < cvector_size(columns); i++) {
+					free(cvector_get(columns, i));
+				}
+				cvector_free(columns);
+				free(columns);
+				ERROR_CODE = 8;
+				return NULL;
+			}
+			AddIndex(index, array, 1);
+			count++;
+		}
+		else if (GetType(array, index) == TokenType_LeftFigureBracket) {
+			AddIndex(index, array, 1);
+			count = 0;
+			operand = GetOperand(array, index);
+			if (operand == NULL) {
+				free(row);
+				for (int i = 0; i < cvector_size(columns); i++) {
+					free(cvector_get(columns, i));
+				}
+				cvector_free(columns);
+				free(columns);
+				return NULL;
+			}
+			else {
+				cvector_push_back(columns, operand);
+			}
+			AddIndex(index, array, 1);
+		}
+		else {
+			free(row);
+			for (int i = 0; i < cvector_size(columns); i++) {
+				free(cvector_get(columns, i));
+			}
+			cvector_free(columns);
+			free(columns);
+			ERROR_CODE = 8;
+			return NULL;
+		}
+	}
+	row->columnsCount = cvector_size(columns);
+	row->columns = (Operand*)malloc(sizeof(Operand) * ((*row).columnsCount));
+	if (row->columns == NULL) {
+		free(row);
+		for (int i = 0; i < cvector_size(columns); i++) {
+			free(cvector_get(columns, i));
+		}
+		cvector_free(columns);
+		free(columns);
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	for (int i = 0; i < row->columnsCount; i++) {
+		row->columns[i] = *(Operand*)cvector_get(columns, i);
+	}
+	return row;
+}
+
+Operand* GetMatrixInitializator(Array* array, int* index) {
+	MatrixInitializator* m = (MatrixInitializator*)malloc(sizeof(MatrixInitializator));
+	MatrixRow* row;
+	if (m == NULL) {
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	cvector* rows = (cvector*)malloc(sizeof(cvector));
+	if (rows == NULL) {
+		free(m);
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	cvector_init(rows);
+	if (GetType(array, index) != TokenType_LeftFigureBracket) {
+		free(m);
+		ERROR_CODE = 8;
+		return NULL;
+	}
+	int count = 0;
+	AddIndex(index, array, 1);
+	while (GetType(array, index) != TokenType_RightFigureBracket) {
+		if (GetType(array, index) == TokenType_End) {
+			free(m);
+			for (int i = 0; i < cvector_size(rows); i++) {
+				free(cvector_get(rows, i));
+			}
+			cvector_free(rows);
+			free(rows);
+			ERROR_CODE = 1;
+			return NULL;
+		}
+		else if (GetType(array, index) == TokenType_Sep) {
+			if (count != 0) {
+				free(m);
+				for (int i = 0; i < cvector_size(rows); i++) {
+					free(cvector_get(rows, i));
+				}
+				cvector_free(rows);
+				free(rows);
+				ERROR_CODE = 8;
+				return NULL;
+			}
+			AddIndex(index, array, 1);
+			count++;
+		}
+		else if (GetType(array, index) == TokenType_LeftFigureBracket) {
+			AddIndex(index, array, 1);
+			count = 0;
+			row = GetMatrixRow(array, index);
+			if (row == NULL) {
+				free(m);
+				for (int i = 0; i < cvector_size(rows); i++) {
+					free(cvector_get(rows, i));
+				}
+				cvector_free(rows);
+				free(rows);
+				return NULL;
+			}
+			else {
+				cvector_push_back(rows, row);
+			}
+			AddIndex(index, array, 1);
+		}
+		else {
+			free(m);
+			for (int i = 0; i < cvector_size(rows); i++) {
+				free(cvector_get(rows, i));
+			}
+			cvector_free(rows);
+			free(rows);
+			ERROR_CODE = 8;
+			return NULL;
+		}
+	}
+	m->rowsCount = cvector_size(rows);
+	m->rows = (MatrixRow*)malloc(sizeof(MatrixRow) * (m->rowsCount));
+	if (m->rows == NULL) {
+		free(m);
+		for (int i = 0; i < cvector_size(rows); i++) {
+			free(cvector_get(rows, i));
+		}
+		cvector_free(rows);
+		free(rows);
+		ERROR_CODE = 10;
+		return NULL;
+	}
+	for (int i = 0; i < m->rowsCount; i++) {
+		m->rows[i] = (MatrixRow*)cvector_get(rows, i);
+	}
+	return m;
+}
+
 Part* GetSetting(Array* array, int* index) {
 	Part* part = (Part*)malloc(sizeof(Part));
 	part->type = PartType_Error;
@@ -969,15 +1212,20 @@ Part* GetSetting(Array* array, int* index) {
 		ERROR_CODE = 10;
 		return NULL;
 	}
-	Operand* operand = GetVariable(array, index);
+	int lastIndex = *index;
+	Operand* operand = GetMatrixElement(array, index);
 	if (operand == NULL) {
-		ERROR_CODE = 3;
-		free(part);
-		return NULL;
+		AddIndex(index, array, -(*index - lastIndex));
+		operand = GetVariable(array, index);
+		if (operand == NULL) {
+			ERROR_CODE = 3;
+			free(part);
+			return NULL;
+		}
+		AddIndex(index, array, 1);
 	}
-	AddIndex(index, array, 1);
 	if (GetType(array, index) == TokenType_OpMul || GetType(array, index) == TokenType_OpSub || GetType(array, index) == TokenType_OpDiv || GetType(array, index) == TokenType_OpAdd) {
-		enum OpType last = (*(Token*)(((Token*)array->data) + *index)).type;
+		enum OpType lastOperationType = (*(Token*)(((Token*)array->data) + *index)).type;
 		if ((*(Token*)(((Token*)array->data) + *index + 1)).type != TokenType_OpEquals) {
 			AddIndex(index, array, 1);
 			freeOperand(operand);
@@ -986,11 +1234,27 @@ Part* GetSetting(Array* array, int* index) {
 			return NULL;
 		}
 		AddIndex(index, array, 2);
-		Operand* source = GetArithmetic(array, index);
-		if (source == NULL) {
-			freeOperand(operand);
-			ERROR_CODE = 10;
-			return part;
+		Operand* source;
+		int last = *index;
+		if (operand->type == OperandType_Variable) {
+			source = GetMatrixInitializator(array, index);
+			if (source == NULL) {
+				AddIndex(index, array, -(*index - lastOperationType));
+				source = GetArithmetic(array, index);
+				if (source == NULL) {
+					freeOperand(operand);
+					ERROR_CODE = 10;
+					return part;
+				}
+			}
+		}
+		else if (operand->type == OperandType_MatrixElement) {
+			source = GetArithmetic(array, index);
+			if (source == NULL) {
+				freeOperand(operand);
+				ERROR_CODE = 10;
+				return part;
+			}
 		}
 		Arithmetic* arithmetic = (Arithmetic*)malloc(sizeof(Arithmetic));
 		if (arithmetic == NULL) {
@@ -1020,16 +1284,16 @@ Part* GetSetting(Array* array, int* index) {
 			ERROR_CODE = 10;
 			return part;
 		}
-		if (last == TokenType_OpMul) {
+		if (lastOperationType == TokenType_OpMul) {
 			arithmetic->operations[0] = OpType_Mul;
 		}
-		else if (last == TokenType_OpSub) {
+		else if (lastOperationType == TokenType_OpSub) {
 			arithmetic->operations[0] = OpType_Sub;
 		}
-		else if (last == TokenType_OpDiv) {
+		else if (lastOperationType == TokenType_OpDiv) {
 			arithmetic->operations[0] = OpType_Div;
 		}
-		else if (last == TokenType_OpAdd) {
+		else if (lastOperationType == TokenType_OpAdd) {
 			arithmetic->operations[0] = OpType_Add;
 		}
 		Operand* expression = (Operand*)malloc(sizeof(Operand));
@@ -1063,7 +1327,28 @@ Part* GetSetting(Array* array, int* index) {
 	}
 	else if (GetType(array, index) == TokenType_OpEquals) {
 		AddIndex(index, array, 1);
-		Operand* source = GetArithmetic(array, index);
+		Operand* source;
+		int last = *index;
+		if (operand->type == OperandType_Variable) {
+			source = GetMatrixInitializator(array, index);
+			if (source == NULL) {
+				AddIndex(index, array, -(*index - last));
+				source = GetArithmetic(array, index);
+				if (source == NULL) {
+					freeOperand(operand);
+					ERROR_CODE = 10;
+					return part;
+				}
+			}
+		}
+		else if (operand->type == OperandType_MatrixElement) {
+			source = GetArithmetic(array, index);
+			if (source == NULL) {
+				freeOperand(operand);
+				ERROR_CODE = 10;
+				return part;
+			}
+		}
 		if (source == NULL) {
 			freeOperand(operand);
 			return part;
@@ -1239,7 +1524,7 @@ Part* GetPart(Array* array, int* index) {
 			if (part != NULL && part->type != PartType_Error) {
 				return part;
 			}
-			else if(part != NULL){
+			else if (part != NULL) {
 				free(part);
 				return NULL;
 			}
@@ -1361,8 +1646,9 @@ Expression* GetExpression(Array* array, int* index, int isBody) {
 			cvector_push_back(parts, part);
 			part = NULL;
 			continue;
-		}else if((*(((Token*)array->data) + *index)).type == TokenType_NewLine){
-		    AddIndex(index, array, 1);
+		}
+		else if ((*(((Token*)array->data) + *index)).type == TokenType_NewLine) {
+			AddIndex(index, array, 1);
 			continue;
 		}
 		part = GetPart(array, index);

@@ -7,19 +7,8 @@
 
 #define OUT_H
 
-#include <stdio.h>
-#include "globals.h"
+#include "data_structures.h"
 #include "cvector.h"
-
-typedef struct
-{
-    char* file;
-    char* str;
-    short isFile;
-    short type; // 0 - lexer, 1 - parser, 2 - interpretator
-    unsigned short line;
-    unsigned short pos;
-} Environment;
 
 extern void error(const char* msg);
 extern void error2(const char* msg);
