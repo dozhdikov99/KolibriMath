@@ -6,6 +6,10 @@
 
 #include "matrix.h"
 
+Matrix* matrix_minor(Matrix* matrix, int row, int column);
+
+double matrix_cofactor(Matrix* matrix, int row, int column);
+
 #define DEFAULT_ELEMENT_VALUE 0
 
 #define MAX_ELEMENT_LENGHT 100
@@ -239,4 +243,107 @@ Matrix* matrix_substraction(Matrix* matrix1, Matrix* matrix2) {
         }
     }
     return newMatrix;
+}
+
+double matrix_det(Matrix* matrix) {
+    if (matrix == NULL || matrix->columnsCount != matrix->rowsCount) {
+        return -1;
+    }
+    int n = (int)sqrt(matrix_lenght(matrix));
+
+    if (n == 1)
+    {
+        return matrix->elements[0][0];
+    }
+
+    double det = 0;
+
+    for (int k = 0; k < n; k++)
+    {
+        det += matrix->elements[0][k] * matrix_cofactor(matrix, 0, k);
+    }
+
+    return det;
+}
+
+double matrix_cofactor(Matrix* matrix, int row, int column) {
+    Matrix* m = matrix_minor(matrix, row, column);
+    double det = matrix_det(m);
+    double value = pow(-1, column + row) * det;
+    matrix_free(m);
+    return value;
+}
+
+Matrix* matrix_minor(Matrix* matrix, int row, int column) {
+    int n = (int)sqrt(matrix_lenght(matrix));
+    Matrix* minor = matrix_init(n - 1, n - 1, matrix->elementsType);
+    if (minor == NULL) {
+        return NULL;
+    }
+    int _i = 0;
+    for (int i = 0; i < n; i++)
+    {
+        if (i == row)
+        {
+            continue;
+        }
+        int _j = 0;
+        for (int j = 0; j < n; j++)
+        {
+            if (j == column)
+            {
+                continue;
+            }
+            minor->elements[_i][_j] = matrix->elements[i][j];
+            _j++;
+        }
+        _i++;
+    }
+    return minor;
+}
+
+int matrix_lenght(Matrix* matrix) {
+    return matrix->columnsCount * matrix->rowsCount;
+}
+
+Matrix* matrix_inverse(Matrix* matrix) {
+    if (matrix == NULL) {
+        return NULL;
+    }
+    double det = matrix_det(matrix);
+    if (det <= 0)
+    {
+        return NULL;
+    }
+
+    Matrix* m = matrix_init(matrix->rowsCount, matrix->columnsCount, VarType_Float);
+    if (m == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < matrix->rowsCount; i++)
+    {
+        for (int j = 0; j < matrix->columnsCount; j++)
+        {
+            m->elements[i][j] = matrix_cofactor(matrix, i, j) / det;
+        }
+    }
+
+    return matrix_T(m);
+}
+
+Matrix* matrix_T(Matrix* matrix) {
+    if (matrix == NULL) {
+        return NULL;
+    }
+    Matrix* transposed_matrix = matrix_init(matrix->columnsCount, matrix->rowsCount, matrix->elementsType);
+    if (transposed_matrix == NULL) {
+        return NULL;
+    }
+    for (int i = 0; i < matrix->columnsCount; i++) {
+        for (int j = 0; j < matrix->rowsCount; j++) {
+            transposed_matrix->elements[i][j] = matrix->elements[j][i];
+        }
+    }
+    return transposed_matrix;
 }

@@ -10,6 +10,7 @@
 #include "data_structures.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 Matrix* matrix_init_undefinedElementsType(int rowsCount, int columnsCount);
 
@@ -34,5 +35,11 @@ Matrix* matrix_addition(Matrix* matrix1, Matrix* matrix2);
 Matrix* matrix_substraction(Matrix* matrix1, Matrix* matrix2);
 
 short matrix_equals(Matrix* matrix1, Matrix* matrix2);
+
+double matrix_det(Matrix* matrix);
+
+Matrix* matrix_inverse(Matrix* matrix);
+
+Matrix* matrix_T(Matrix* matrix);
 
 #endif

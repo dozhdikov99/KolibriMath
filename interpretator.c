@@ -38,6 +38,14 @@ short isNumber(Result* result) {
 	return result != NULL && result->type != VarType_Undefined && result->type != VarType_Str && result->type != VarType_FloatMatrix && result->type != VarType_IntMatrix;
 }
 
+short isStr(Result* result) {
+	return result->type == ResultType_Str;
+}
+
+short isMatrix(Result* result) {
+	return result->type == ResultType_IntMatrix || result->type == ResultType_FloatMatrix;
+}
+
 void freeVariable(Variable_* variable) {
 	switch (variable->type) {
 	case VarType_FloatMatrix:
@@ -397,7 +405,7 @@ void runIntMatrixFunc(Result* emptyResult, Function* function) {
 	Result* operand0 = runOperand(function->operands);
 	Result* operand1 = runOperand(function->operands + 1);
 	Result* operand2 = runOperand(function->operands + 2);
-	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+	if (isStr(operand0) && isNumber(operand1) && isNumber(operand2)) {
 		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
 			    if(findVariable(operand0->str) == NULL){
 					Variable_* variable = (Variable_*)malloc(sizeof(Variable_));
@@ -454,7 +462,7 @@ void runFloatMatrixFunc(Result* emptyResult, Function* function) {
 	Result* operand0 = runOperand(function->operands);
 	Result* operand1 = runOperand(function->operands + 1);
 	Result* operand2 = runOperand(function->operands + 2);
-	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+	if (isStr(operand0) && isNumber(operand1) && isNumber(operand2)) {
 		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
 			if (findVariable(operand0->str) == NULL) {
 				Variable_* variable = (Variable_*)malloc(sizeof(Variable_));
@@ -511,13 +519,12 @@ void runResizeMatrixFunc(Result* emptyResult, Function* function) {
 	Result* operand0 = runOperand(function->operands);
 	Result* operand1 = runOperand(function->operands + 1);
 	Result* operand2 = runOperand(function->operands + 2);
-	if (!isNumber(operand0) && isNumber(operand1) && isNumber(operand2)) {
+	if (isStr(operand0) && isNumber(operand1) && isNumber(operand2)) {
 		if ((*(Result*)operand1).value > 0 && (*(Result*)operand2).value > 0) {
 			Variable_* variable = findVariable(operand0->str);
 			if (variable != NULL) {
 					variable->matrix = matrix_resize(variable->matrix, (*(Result*)operand1).value, (*(Result*)operand2).value);
 					if (variable->matrix == NULL) {
-						free(variable);
 						error(errors5[7]);
 					}
 			}
@@ -550,6 +557,94 @@ void runResizeMatrixFunc(Result* emptyResult, Function* function) {
 		}
 		if (operand2 != NULL) {
 			free(operand2);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runMatrixDetFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	if (isStr(operand0)) {
+			Variable_* variable = findVariable(operand0->str);
+			if (variable != NULL) {
+				emptyResult->value = matrix_det(variable->matrix);
+				if (emptyResult->value < 0) {
+					error(errors5[3]);
+				}
+				else {
+					emptyResult->type = ResultType_Float;
+				}
+			}
+			else {
+				error(errors5[8]);
+			}
+			free(operand0);
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runMatrixTFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	if (isStr(operand0)) {
+		Variable_* variable = findVariable(operand0->str);
+		if (variable != NULL) {
+			emptyResult->matrix = matrix_T(variable->matrix);
+			if (emptyResult->matrix == NULL) {
+				error(errors5[3]);
+			}
+			else {
+				if (emptyResult->matrix->elementsType == VarType_Float) {
+					emptyResult->type = ResultType_FloatMatrix;
+				}
+				else {
+					emptyResult->type = ResultType_IntMatrix;
+				}
+			}
+		}
+		else {
+			error(errors5[8]);
+		}
+		free(operand0);
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
+		}
+		error(errors5[3]);
+	}
+}
+
+void runMatrixInverseFunc(Result* emptyResult, Function* function) {
+	Result* operand0 = runOperand(function->operands);
+	if (isStr(operand0)) {
+		Variable_* variable = findVariable(operand0->str);
+		if (variable != NULL) {
+			emptyResult->matrix = matrix_inverse(variable->matrix);
+			if (emptyResult->matrix == NULL) {
+				error(errors5[3]);
+			}
+			else {
+				if (emptyResult->matrix->elementsType == VarType_Float) {
+					emptyResult->type = ResultType_FloatMatrix;
+				}
+				else {
+					emptyResult->type = ResultType_IntMatrix;
+				}
+			}
+		}
+		else {
+			error(errors5[8]);
+		}
+		free(operand0);
+	}
+	else {
+		if (operand0 != NULL) {
+			free(operand0);
 		}
 		error(errors5[3]);
 	}
@@ -807,6 +902,15 @@ Result* runFunction(Function* function) {
 		else if (!(strcmp((*(Function*)function).name, "mod"))) {
 			runModFunc(result, function);
 		}
+		else if (!(strcmp((*(Function*)function).name, "det"))) {
+			runMatrixDetFunc(result, function);
+		}
+		else if (!(strcmp((*(Function*)function).name, "T"))) {
+			runMatrixTFunc(result, function);
+		}
+		else if (!(strcmp((*(Function*)function).name, "inverse"))) {
+			runMatrixInverseFunc(result, function);
+		}
 		else {
 			error(errors5[2]);
 		}
@@ -837,10 +941,6 @@ Result* runFunction(Function* function) {
 		error(errors5[2]);
 	}
 	return result;
-}
-
-int isMatrix(Result* result) {
-	return result->type == ResultType_IntMatrix || result->type == ResultType_FloatMatrix;
 }
 
 Result* runOperation(Result* one, Result* two, enum OpType type) {
