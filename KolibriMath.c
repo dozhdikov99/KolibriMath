@@ -68,7 +68,7 @@ void main(int argc, char** argv) {
 	con_set_title("KolibriMath");
 	printf("KolibriMath %s.\n", ver);
 	printf("Для просмотра справки введите help().\n");
-	if (initTables()) {
+	if (initTablesAndVariables()) {
 		initStack();
 		if (argc == 2) {
 			printf(">>> file(\'%s\')\n", argv[1]);

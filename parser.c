@@ -344,7 +344,7 @@ Operand* GetMatrixElement(Array* array, int* index) {
 		return NULL;
 	}
 	int new_index = *index + 1;
-	if (GetType(array, index) != TokenType_Name && GetType(array, &new_index) != TokenType_LeftSquareBracket) {
+	if (GetType(array, index) != TokenType_Name || GetType(array, &new_index) != TokenType_LeftSquareBracket) {
 		ERROR_CODE = 8;
 		free(operand);
 		return NULL;
@@ -1239,7 +1239,7 @@ Part* GetSetting(Array* array, int* index) {
 		if (operand->type == OperandType_Variable) {
 			source = GetMatrixInitializator(array, index);
 			if (source == NULL) {
-				AddIndex(index, array, -(*index - lastOperationType));
+				AddIndex(index, array, -(*index - last));
 				source = GetArithmetic(array, index);
 				if (source == NULL) {
 					freeOperand(operand);

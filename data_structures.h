@@ -217,6 +217,7 @@ typedef struct {
 	double value;
 	Matrix* matrix;
 	enum VarType type;
+	short isSystem;
 } Variable_;
 
 typedef struct {

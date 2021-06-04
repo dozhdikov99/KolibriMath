@@ -21,7 +21,7 @@ Environment* environment;
 
 char* stringInput;
 short value = 0;
-const char* errors5[] = { "ошибка выделения памяти [код: 5.0].", "строка не может быть слишком длинной [код 5.1].", "функция с таким числом аргументов не найдена [код 5.2].", "не удалось выполнить функцию [код: 5.3]", "функция \'sqrt\' принимает отрицательный аргумент [код 5.4].", "функция \'pow\' принимает нулевой показатель [код: 5.5].", "изменение невозможно, так как переменная принадлежит другому типу [код: 5.6].", "индекс имеет недопустимый формат [код: 5.7].", "переменная с таким именем не найдена [код: 5.8].", "деление на ноль запрещено [код: 5.9].", "результат операции над матрицами не получен [код: 5.10].", "данная операция неприменима к матрицам [код: 5.11].", "переменная с таким именем уже существует [код: 5.12]." };
+const char* errors5[] = { "ошибка выделения памяти [код: 5.0].", "строка не может быть слишком длинной [код 5.1].", "функция с таким числом аргументов не найдена [код 5.2].", "не удалось выполнить функцию [код: 5.3]", "функция \'sqrt\' принимает отрицательный аргумент [код 5.4].", "функция \'pow\' принимает нулевой показатель [код: 5.5].", "изменение невозможно, так как переменная принадлежит другому типу [код: 5.6].", "индекс имеет недопустимый формат [код: 5.7].", "переменная с таким именем не найдена [код: 5.8].", "деление на ноль запрещено [код: 5.9].", "результат операции над матрицами не получен [код: 5.10].", "данная операция неприменима к матрицам [код: 5.11].", "переменная с таким именем уже существует [код: 5.12].", "нельзя изменить системную переменную [код: 5.13]." };
 
 Result* runArithmetic(Arithmetic* arithmetic);
 Result* runOperand(Operand* operand);
@@ -169,6 +169,7 @@ void runLangFunc(Result* emptyResult) {
 	printf("Основное назначение языка на данный момент - проведение расчетов.\n");
 	printf("Язык прозволяет работать с переменными двух типов: int, float. Тип задается при присваивании автоматически.\n");
 	printf("При присваивании используется следующая структура: <переменная> = <выражение>.\n");
+	printf("Допускаются операции с числами: +, -, /, *. Имеются сокращенные операции присваивания: +=, -=, /=, *=.");
 	printf("Поддерживаются матрицы целочисленные и дробные. Для матриц доступны операции: +, -, *, ==, !=.\n");
 	printf("Имеются блоки if(<условие>){<тело>}, elif(<условие>){<тело>}, else{<тело>}, repeat(<условие>){<тело>}.\n");
 	printf("Логические операции: & (И), | (ИЛИ), ! (НЕ), ==, !=, <=, <, >=, >.\n");
@@ -181,6 +182,7 @@ void runLangFunc(Result* emptyResult) {
 	printf("intMatrix(<название переменной>, <число строк>, <число столбцов>).\n");
 	printf("floatMatrix(<название переменной>, <число строк>, <число столбцов>).\n");
 	printf("resizeMatrix(<название переменной>, <новое число строк>, <новое число столбцов>).\n");
+	printf("Имеются константы: PI, E.");
 }
 
 void runInputFunc(Result* emptyResult, Function* function, enum InputType inputType) {
@@ -974,11 +976,23 @@ Result* runOperation(Result* one, Result* two, enum OpType type) {
 		twoIsFloat = 0;
 	}
 	if (type == OpType_Div) {
-		if (one->matrix != NULL || two->matrix != NULL) {
+		if ((isMatrix(one) && isMatrix(two)) || isMatrix(two)) {
 			error2(errors5[11]);
 			return NULL;
 		}
-		if (oneIsFloat && twoIsFloat) {
+		if (isMatrix(one)) {
+			((Result*)result)->matrix = matrix_multiplication_withNumber(one->matrix, 1/(*two).value);
+			if (((Result*)result)->matrix == NULL) {
+				error2(errors5[10]);
+				free(result);
+				return NULL;
+			}
+			else {
+				result->type = ResultType_FloatMatrix;
+			}
+			return result;
+		}
+		else if (oneIsFloat && twoIsFloat) {
 			if (twoDouble != 0) {
 				res = oneDouble / twoDouble;
 			}
@@ -1580,6 +1594,10 @@ void runSetting(Part* part) {
 			variable->name = (char*)(*(Operand*)((Setting*)part->data)->variable).data;
 		}
 	}
+	else if(variable->isSystem == 1){
+		error2(errors5[13]);
+		return;
+	}
 	Result* result = runOperand((Operand*)((Setting*)part->data)->source);
 	if (result != NULL) {
 		switch ((*(Result*)result).type) {
@@ -1782,13 +1800,33 @@ void runPart(Part* part) {
 	}
 }
 
-short initTables() {
+short initTablesAndVariables() {
 	variables = (cvector*)malloc(sizeof(cvector));
 	if (variables == NULL) {
 		error2(errors5[0]);
 		return 0;
 	}
 	cvector_init(variables);
+	Variable_* PI = malloc(sizeof(Variable_));
+	if (PI == NULL) {
+		error2(errors5[0]);
+		return 0;
+	}
+	PI->name = "PI";
+	PI->type = VarType_Float;
+	PI->value = 3.1415926535;
+	PI->isSystem = 1;
+	cvector_push_back(variables, PI);
+	Variable_* E = malloc(sizeof(Variable_));
+	if (E == NULL) {
+		error2(errors5[0]);
+		return 0;
+	}
+	E->name = "E";
+	E->type = VarType_Float;
+	E->value = 2.7182818284;
+	E->isSystem = 1;
+	cvector_push_back(variables, E);
 	stringInput = malloc(sizeof(char) * MAX_EXPRESSION);
 	memset(stringInput, 0, sizeof(stringInput));
 	return 1;

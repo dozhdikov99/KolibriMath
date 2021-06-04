@@ -21,7 +21,7 @@ void run(Expression* expression);
 
 void freeTables();
 
-short initTables();
+short initTablesAndVariables();
 
 #endif
 
