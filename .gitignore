@@ -1,9 +1,8 @@
 *.o
-*.kex
 РБНФ.txt
 РБНФ_Парсер.txt
 РБНФ-2.txt
 KolibriMath
 /.vscode/
 *.docx
-*.pdf
+/ignore/
